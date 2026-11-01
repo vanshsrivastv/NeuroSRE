@@ -1,0 +1,61 @@
+fault,service,detected,classified,triage_correct,runbook,runbook_correct,retrieval_p1,retrieval_hit3,risk,status,attempts,first_try_fix,agent_seconds,llm_steps,actions
+high_cpu,payment-service,True,high_cpu,True,RB-001,True,True,True,medium,resolved,1,True,0.59,0,scale_service
+memory_leak,api-gateway,True,memory_leak,True,RB-002,True,True,True,low,resolved,1,True,0.37,0,restart_service
+disk_full,orders-db,True,disk_full,True,RB-003,True,True,True,low,resolved,1,True,0.4,0,rotate_logs; clear_tmp
+service_crash,auth-service,True,service_crash,True,RB-004,True,True,True,low,resolved,1,True,0.32,0,restart_service
+db_connection_exhausted,orders-db,True,db_connection_exhausted,True,RB-005,True,True,True,medium,resolved,1,True,0.43,0,kill_idle_connections; increase_pool
+slow_queries,orders-db,True,slow_queries,True,RB-006,True,True,True,medium,resolved,1,True,0.36,0,kill_long_queries
+tls_cert_expired,api-gateway,True,tls_cert_expired,True,RB-007,True,True,True,low,resolved,1,True,0.4,0,renew_certificate
+cache_failure,redis-cache,True,cache_failure,True,RB-008,True,True,True,low,resolved,1,True,0.34,0,restart_service
+queue_backlog,worker-queue,True,queue_backlog,True,RB-009,True,True,True,medium,resolved,1,True,0.35,0,scale_service
+bad_deployment,auth-service,True,bad_deployment,True,RB-010,True,True,True,high,resolved,1,True,0.3,0,rollback_deployment
+db_primary_failure,orders-db,True,db_primary_failure,True,RB-011,True,True,True,high,resolved,1,True,0.42,0,failover_database
+dns_failure,payment-service,True,dns_failure,True,RB-012,True,True,True,low,resolved,1,True,0.36,0,flush_dns_cache
+high_cpu,payment-service,True,high_cpu,True,RB-001,True,True,True,medium,resolved,1,True,0.36,0,scale_service
+memory_leak,api-gateway,True,memory_leak,True,RB-002,True,True,True,low,resolved,1,True,0.33,0,restart_service
+disk_full,orders-db,True,disk_full,True,RB-003,True,True,True,low,resolved,1,True,0.38,0,rotate_logs; clear_tmp
+service_crash,payment-service,True,service_crash,True,RB-004,True,True,True,low,resolved,1,True,0.37,0,restart_service
+db_connection_exhausted,orders-db,True,db_connection_exhausted,True,RB-005,True,True,True,medium,resolved,1,True,0.33,0,kill_idle_connections; increase_pool
+slow_queries,orders-db,True,slow_queries,True,RB-006,True,True,True,medium,resolved,1,True,0.41,0,kill_long_queries
+tls_cert_expired,api-gateway,True,tls_cert_expired,True,RB-007,True,True,True,low,resolved,1,True,0.42,0,renew_certificate
+cache_failure,redis-cache,True,cache_failure,True,RB-008,True,True,True,low,resolved,1,True,0.4,0,restart_service
+queue_backlog,worker-queue,True,queue_backlog,True,RB-009,True,True,True,medium,resolved,1,True,0.34,0,scale_service
+bad_deployment,payment-service,True,bad_deployment,True,RB-010,True,True,True,high,resolved,1,True,0.3,0,rollback_deployment
+db_primary_failure,orders-db,True,db_primary_failure,True,RB-011,True,True,True,high,resolved,1,True,0.4,0,failover_database
+dns_failure,auth-service,True,dns_failure,True,RB-012,True,True,True,low,resolved,1,True,0.37,0,flush_dns_cache
+high_cpu,payment-service,True,high_cpu,True,RB-001,True,True,True,medium,resolved,1,True,0.34,0,scale_service
+memory_leak,api-gateway,True,memory_leak,True,RB-002,True,True,True,low,resolved,1,True,0.34,0,restart_service
+disk_full,api-gateway,True,disk_full,True,RB-003,True,True,True,low,resolved,1,True,0.4,0,rotate_logs; clear_tmp
+service_crash,auth-service,True,service_crash,True,RB-004,True,True,True,low,resolved,1,True,0.37,0,restart_service
+db_connection_exhausted,orders-db,True,db_connection_exhausted,True,RB-005,True,True,True,medium,resolved,1,True,0.36,0,kill_idle_connections; increase_pool
+slow_queries,orders-db,True,slow_queries,True,RB-006,True,True,True,medium,resolved,1,True,0.45,0,kill_long_queries
+tls_cert_expired,api-gateway,True,tls_cert_expired,True,RB-007,True,True,True,low,resolved,1,True,0.38,0,renew_certificate
+cache_failure,redis-cache,True,cache_failure,True,RB-008,True,True,True,low,resolved,1,True,0.45,0,restart_service
+queue_backlog,worker-queue,True,queue_backlog,True,RB-009,True,True,True,medium,resolved,1,True,0.34,0,scale_service
+bad_deployment,api-gateway,True,bad_deployment,True,RB-010,True,False,True,high,resolved,1,True,0.34,0,rollback_deployment
+db_primary_failure,orders-db,True,db_primary_failure,True,RB-011,True,True,True,high,resolved,1,True,0.37,0,failover_database
+dns_failure,auth-service,True,dns_failure,True,RB-012,True,True,True,low,resolved,1,True,0.36,0,flush_dns_cache
+high_cpu,auth-service,True,high_cpu,True,RB-001,True,True,True,medium,resolved,1,True,0.4,0,scale_service
+memory_leak,api-gateway,True,memory_leak,True,RB-002,True,True,True,low,resolved,1,True,0.4,0,restart_service
+disk_full,orders-db,True,disk_full,True,RB-003,True,True,True,low,resolved,1,True,0.41,0,rotate_logs; clear_tmp
+service_crash,api-gateway,True,service_crash,True,RB-004,True,True,True,low,resolved,1,True,0.39,0,restart_service
+db_connection_exhausted,orders-db,True,db_connection_exhausted,True,RB-005,True,True,True,medium,resolved,1,True,0.37,0,kill_idle_connections; increase_pool
+slow_queries,orders-db,True,slow_queries,True,RB-006,True,True,True,medium,resolved,1,True,0.35,0,kill_long_queries
+tls_cert_expired,api-gateway,True,tls_cert_expired,True,RB-007,True,True,True,low,resolved,1,True,0.44,0,renew_certificate
+cache_failure,redis-cache,True,cache_failure,True,RB-008,True,True,True,low,resolved,1,True,0.48,0,restart_service
+queue_backlog,worker-queue,True,queue_backlog,True,RB-009,True,True,True,medium,resolved,1,True,0.42,0,scale_service
+bad_deployment,auth-service,True,bad_deployment,True,RB-010,True,True,True,high,resolved,1,True,0.34,0,rollback_deployment
+db_primary_failure,orders-db,True,db_primary_failure,True,RB-011,True,True,True,high,resolved,1,True,0.33,0,failover_database
+dns_failure,payment-service,True,dns_failure,True,RB-012,True,True,True,low,resolved,1,True,0.43,0,flush_dns_cache
+high_cpu,payment-service,True,high_cpu,True,RB-001,True,True,True,medium,resolved,1,True,0.37,0,scale_service
+memory_leak,auth-service,True,memory_leak,True,RB-002,True,True,True,low,resolved,1,True,0.44,0,restart_service
+disk_full,payment-service,True,disk_full,True,RB-003,True,True,True,low,resolved,1,True,0.37,0,rotate_logs; clear_tmp
+service_crash,payment-service,True,service_crash,True,RB-004,True,True,True,low,resolved,1,True,0.37,0,restart_service
+db_connection_exhausted,orders-db,True,db_connection_exhausted,True,RB-005,True,True,True,medium,resolved,1,True,0.42,0,kill_idle_connections; increase_pool
+slow_queries,orders-db,True,slow_queries,True,RB-006,True,True,True,medium,resolved,1,True,0.44,0,kill_long_queries
+tls_cert_expired,api-gateway,True,tls_cert_expired,True,RB-007,True,True,True,low,resolved,1,True,0.39,0,renew_certificate
+cache_failure,redis-cache,True,cache_failure,True,RB-008,True,True,True,low,resolved,1,True,0.35,0,restart_service
+queue_backlog,worker-queue,True,queue_backlog,True,RB-009,True,True,True,medium,resolved,1,True,0.37,0,scale_service
+bad_deployment,api-gateway,True,bad_deployment,True,RB-010,True,False,True,high,resolved,1,True,0.38,0,rollback_deployment
+db_primary_failure,orders-db,True,db_primary_failure,True,RB-011,True,True,True,high,resolved,1,True,0.34,0,failover_database
+dns_failure,payment-service,True,dns_failure,True,RB-012,True,True,True,low,resolved,1,True,0.43,0,flush_dns_cache

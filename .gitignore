@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+data/
+docs/evaluation/eval.db
+
+# old group-project synopsis (contains classmates' details)
+docs/NeuroSRE_Synopsis.docx
+docs/NeuroSRE_Synopsis.pdf

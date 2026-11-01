@@ -1,0 +1,19 @@
+services:
+  neurosre:
+    build: .
+    image: neurosre:latest
+    container_name: neurosre
+    ports:
+      - "8501:8501"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NEUROSRE_DATA_DIR: /app/data
+    volumes:
+      # named volume: on first start Docker seeds it with the vector index built into the image
+      - neurosre-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  neurosre-data:
