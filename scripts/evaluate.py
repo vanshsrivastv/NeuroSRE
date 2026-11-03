@@ -74,13 +74,15 @@ def main() -> None:
 def summarise(engine: Engine, fault: str, r: dict, wall: float) -> dict:
     st = r.get("state", {})
     rep = r.get("report") or {}
-    truth_rb = engine.kb.by_type(fault).id
+    truth = engine.kb.by_type(fault)
+    truth_rb = truth.id if truth else None           # None = fault has no runbook; correct outcome is escalation
+    expected_type = fault if truth else "unknown"
     first_diag = next((e for e in r.get("timeline", []) if e["agent"] == "Diagnosis"), None)
     retrieved = [x[0] for x in (first_diag["detail"].get("retrieved", []) if first_diag else [])]
     modes = {e["agent"]: e["mode"] for e in r.get("timeline", []) if e["mode"] in ("llm", "rules")}
     return {
         "fault": fault, "service": r.get("service"), "detected": r.get("detected"),
-        "classified": rep.get("incident_type") or "-", "triage_correct": rep.get("incident_type") == fault,
+        "classified": rep.get("incident_type") or "-", "triage_correct": rep.get("incident_type") == expected_type,
         "runbook": rep.get("runbook_id"), "runbook_correct": rep.get("runbook_id") == truth_rb,
         "retrieval_p1": retrieved[:1] == [truth_rb], "retrieval_hit3": truth_rb in retrieved[:3],
         "risk": rep.get("risk"), "status": r.get("status"), "attempts": rep.get("attempts", 0),

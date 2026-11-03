@@ -1,10 +1,12 @@
+# syntax=docker/dockerfile:1
 FROM python:3.12-slim
 
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+ENV PYTHONUNBUFFERED=1 PIP_DEFAULT_TIMEOUT=180 PIP_RETRIES=10
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+# cache mount: if a slow download fails, the next build reuses what was already fetched
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
 COPY . .
 # Build the vector index (and download the embedding model) at image build time

@@ -27,6 +27,12 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0"))
 # Agent behaviour
 RETRIEVAL_TOP_K = int(os.getenv("RETRIEVAL_TOP_K", "3"))
 MAX_ATTEMPTS = int(os.getenv("MAX_ATTEMPTS", "3"))
+# Evidence gate: the LLM's runbook must agree with independent (evidence-only) retrieval
+AGREEMENT_MARGIN = float(os.getenv("AGREEMENT_MARGIN", "0.03"))     # near-tie with the top hit still counts
+MIN_RETRIEVAL_SCORE = float(os.getenv("MIN_RETRIEVAL_SCORE", "0.45"))
+
+# Monitor: an alert fires only after the anomaly persists for N consecutive checks (like Prometheus "for:")
+ALERT_FOR_CHECKS = int(os.getenv("ALERT_FOR_CHECKS", "2"))
 
 # Simulator
 TICK_SECONDS = float(os.getenv("TICK_SECONDS", "2"))

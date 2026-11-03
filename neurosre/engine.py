@@ -45,6 +45,7 @@ class Engine:
         self.incidents: dict[str, dict] = {}
         self.quarantined: set[str] = set()     # services with escalated incidents awaiting a human fix
         self.log_cursor: dict[str, int] = {}    # per service: last log seq of its previous incident
+        self.pending: dict[str, int] = {}       # per service: consecutive checks the anomaly has persisted
         self.pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="incident")
         self.lock = threading.RLock()
         self._ids = itertools.count(1)
@@ -73,11 +74,17 @@ class Engine:
                 if self.auto_faults and not busy and time.time() - self._last_auto > self.auto_interval:
                     self.cloud.inject()
                     self._last_auto = time.time()
-                for alert in monitor.detect(self.cloud.snapshot(), skip=busy | self.quarantined):
+                for alert in self._firing(monitor.detect(self.cloud.snapshot(), skip=busy | self.quarantined)):
                     self.open_incident(alert)
             except Exception as exc:  # keep the loop alive no matter what
                 print("engine loop error:", exc)
             self._stop.wait(config.TICK_SECONDS)
+
+    def _firing(self, alerts: list[dict]) -> list[dict]:
+        """Only alerts whose anomaly has persisted for ALERT_FOR_CHECKS consecutive checks fire."""
+        seen = {a["service"] for a in alerts}
+        self.pending = {s: self.pending.get(s, 0) + 1 for s in seen}
+        return [a for a in alerts if self.pending[a["service"]] >= config.ALERT_FOR_CHECKS]
 
     def busy_services(self) -> set[str]:
         with self.lock:
@@ -173,7 +180,8 @@ class Engine:
         """Inject a fault and handle it end-to-end synchronously (used for evaluation and tests)."""
         fault = self.cloud.inject(fault_id, service)
         assert fault is not None, "could not inject fault"
-        self.cloud.tick()
+        for _ in range(config.ALERT_FOR_CHECKS):     # same persistence rule as the live Monitor
+            self.cloud.tick()
         alerts = [a for a in monitor.detect(self.cloud.snapshot()) if a["service"] == fault.service]
         if not alerts:
             return {"detected": False, "true_fault": fault_id, "service": fault.service}

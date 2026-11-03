@@ -24,6 +24,7 @@ class FaultSpec:
     status: str                                           # "degraded" or "down"
     logs: list[tuple[str, str]]                           # (level, template)
     extra: dict[str, tuple[float, float]] = field(default_factory=dict)
+    known: bool = True          # False = no runbook exists; only a human can fix it
 
 
 def _any(_p, _s):
@@ -125,4 +126,21 @@ FAULTS: dict[str, FaultSpec] = {f.id: f for f in [
         [("ERROR", "getaddrinfo ENOTFOUND orders-db.internal"),
          ("ERROR", "Temporary failure in name resolution: redis-cache.internal"),
          ("WARN", "stale DNS cache entry for auth-service.internal (TTL expired)")]),
+    # ---- faults with NO runbook: the correct behaviour is to escalate, not to guess a fix
+    FaultSpec(
+        "clock_skew", "System clock drift (no runbook)", ["auth-service", "payment-service"],
+        {"manual_intervention": _any},
+        {"error_rate": (30, 50)}, "degraded",
+        [("ERROR", "JWT rejected: token issued in the future (iat > now + 300s)"),
+         ("WARN", "system clock offset +341s from NTP reference"),
+         ("ERROR", "kerberos: clock skew too great while validating ticket")], known=False),
+    FaultSpec(
+        "network_partition", "Partial network partition between zones (no runbook)", ["api-gateway"],
+        {"manual_intervention": _any},
+        {"error_rate": (25, 45), "latency_ms": (2000, 6000)}, "degraded",
+        [("ERROR", "connection reset by peer while proxying to payment-service:8080"),
+         ("WARN", "TCP retransmission rate 14% on eth0"),
+         ("ERROR", "upstream payment-service unreachable from zone ap-south-1b (zone ap-south-1a healthy)")],
+        known=False),
 ]}
+KNOWN_FAULTS = [f for f, spec in FAULTS.items() if spec.known]

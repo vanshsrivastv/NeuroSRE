@@ -93,7 +93,8 @@ class CloudSimulator:
     def inject(self, fault_id: str | None = None, service: str | None = None) -> ActiveFault | None:
         with self.lock:
             if fault_id is None:
-                options = [(f, s) for f in FAULTS.values() for s in f.targets if s not in self.faults]
+                # random chaos uses known faults; unknown ones are injected explicitly
+                options = [(f, s) for f in FAULTS.values() if f.known for s in f.targets if s not in self.faults]
                 if not options:
                     return None
                 spec, service = self.rng.choice(options)

@@ -3,7 +3,7 @@ import pytest
 from neurosre.agents import monitor
 from neurosre.agents.graph import DiagnosisOut, PlanOut, Step, TriageOut
 from neurosre.agents.safety import assess_plan, check_step
-from neurosre.cloud import FAULTS, CloudSimulator
+from neurosre.cloud import FAULTS, KNOWN_FAULTS, CloudSimulator
 from neurosre.engine import Engine
 from neurosre.knowledge.store import KnowledgeBase
 
@@ -71,7 +71,7 @@ def test_plan_risk_is_worst_step():
 
 
 # ---------------------------------------------------------------- retrieval
-@pytest.mark.parametrize("fault", list(FAULTS))
+@pytest.mark.parametrize("fault", KNOWN_FAULTS)
 def test_retrieval_finds_runbook_in_top3(kb, fault):
     spec = FAULTS[fault]
     query = " ".join(t for _, t in spec.logs).replace("{", "").replace("}", "")
@@ -79,13 +79,27 @@ def test_retrieval_finds_runbook_in_top3(kb, fault):
 
 
 # ---------------------------------------------------------------- full graph (offline)
-@pytest.mark.parametrize("fault", list(FAULTS))
+AMBIGUOUS = {"dns_failure"}   # its logs name redis-cache hosts; the evidence gate may (safely) escalate it
+
+
+@pytest.mark.parametrize("fault", KNOWN_FAULTS)
 def test_offline_pipeline_resolves_every_fault(engine, fault):
     r = engine.run_sync(fault)
+    if fault in AMBIGUOUS and r["status"] == "escalated":
+        assert not r["state"].get("executions")      # escalating is fine, acting wrongly is not
+        return
     assert r["status"] == "resolved", r["timeline"][-3:]
     agents = [e["agent"] for e in r["timeline"]]
     assert agents[:5] == ["Monitor", "Triage", "Diagnosis", "Planner", "Safety Guard"]
     assert agents[-1] == "Reporter"
+
+
+@pytest.mark.parametrize("fault", [f for f in FAULTS if f not in KNOWN_FAULTS])
+def test_unknown_fault_is_escalated_without_any_action(engine, fault):
+    r = engine.run_sync(fault)
+    assert r["status"] == "escalated"
+    assert not r["state"].get("executions")
+    assert any(e["agent"] == "Evidence Gate" for e in r["timeline"])
 
 
 def test_high_risk_waits_for_human_and_rejection_escalates(engine):
@@ -141,6 +155,26 @@ def test_llm_wrong_plan_triggers_retry_with_feedback(kb, tmp_path):
     assert r["status"] == "resolved"
     assert r["report"]["attempts"] == 2
     assert any(ev["agent"] == "Diagnosis" and ev["mode"] == "llm" for ev in r["timeline"])
+
+
+def test_llm_refusal_and_conflict_escalate(kb, tmp_path):
+    outputs = [
+        # LLM says no runbook matches
+        TriageOut(incident_type="unknown", service="auth-service", severity="P2", summary="clock problems"),
+        DiagnosisOut(runbook_id="NONE", root_cause="no matching runbook", confidence=0.1),
+    ]
+    e = _llm_engine(kb, tmp_path, outputs)
+    r = e.run_sync("clock_skew", "auth-service")
+    assert r["status"] == "escalated" and not r["state"].get("executions")
+
+    outputs = [
+        # triage and diagnosis disagree -> conflict -> escalate
+        TriageOut(incident_type="memory_leak", service="auth-service", severity="P2", summary="slow"),
+        DiagnosisOut(runbook_id="RB-012", root_cause="dns", confidence=0.6),
+    ]
+    e = _llm_engine(kb, tmp_path, outputs)
+    r = e.run_sync("dns_failure", "auth-service")
+    assert r["status"] == "escalated" and "conflicts" in r["report"]["escalation_reason"]
 
 
 def test_llm_malicious_plan_is_blocked(kb, tmp_path):

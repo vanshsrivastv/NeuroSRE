@@ -1,4 +1,4 @@
-from .faults import FAULTS, FaultSpec
+from .faults import FAULTS, KNOWN_FAULTS, FaultSpec
 from .simulator import CloudSimulator
 
-__all__ = ["FAULTS", "FaultSpec", "CloudSimulator"]
+__all__ = ["FAULTS", "KNOWN_FAULTS", "FaultSpec", "CloudSimulator"]
