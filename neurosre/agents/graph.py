@@ -27,7 +27,7 @@ from ..cloud.simulator import CloudSimulator
 from ..knowledge.store import KnowledgeBase, parse_command
 from . import monitor, rules
 from .llm import LLMClient
-from .safety import allowlist_text, assess_plan
+from .safety import allowlist_text, assess_plan, may_execute
 
 INCIDENT_TYPES = KNOWN_FAULTS + ["unknown"]
 SERVICES = ["api-gateway", "auth-service", "payment-service", "orders-db", "redis-cache", "worker-queue"]
@@ -227,8 +227,13 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
                          for s in plan)
         return {"plan": plan, "timeline": _event("Planner", f"Plan: {cmds or '(empty)'}", mode, secs, plan=plan)}
 
+    def plan_context(state: IncidentState) -> tuple[set[str] | None, str]:
+        """Actions allowed by the selected runbook, and the service that is actually unhealthy."""
+        rb = kb.get(state["diagnosis"]["runbook_id"])
+        return ({c.split()[0] for c in rb.commands} if rb else set()), state["alert"]["service"]
+
     def safety_node(state: IncidentState):
-        risk, verdicts = assess_plan(state["plan"])
+        risk, verdicts = assess_plan(state["plan"], *plan_context(state))
         vd = [v.as_dict() for v in verdicts]
         txt = ", ".join(f"{v['action']}={v['risk']}" for v in vd)
         policy = {"low": "auto-execute", "medium": "auto-execute", "high": "human approval required",
@@ -243,6 +248,13 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
         return {"approval": decision, "timeline": _event("Human Approval", f"On-call engineer {decision} the plan")}
 
     def executor_node(state: IncidentState):
+        runbook_actions, svc = plan_context(state)
+        ok, why = may_execute(state["plan"], runbook_actions, svc, state.get("approval"))
+        if not ok:
+            return {"timeline": _event("Executor", f"Refused to execute: {why}")}
+        if state.get("approval") == "approved" and monitor.is_healthy(svc, cloud.snapshot()[svc])[0]:
+            # the approval may be minutes old: never run a stale plan against a service that is fine now
+            return {"timeline": _event("Executor", f"{svc} is already healthy; stale approved plan not executed")}
         results = [cloud.execute(s["action"], s["target"], s.get("params") or {}) for s in state["plan"]]
         txt = "; ".join(f"{r['action']} {r['target']}: {r['message']}" for r in results)
         return {"executions": state.get("executions", []) + results,

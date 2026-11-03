@@ -93,13 +93,46 @@ def check_step(step: dict) -> Verdict:
     return Verdict(action, target, params, policy.risk, policy.description)
 
 
-def assess_plan(steps: list[dict]) -> tuple[str, list[Verdict]]:
-    """Return the overall risk of a plan (the worst step) and per-step verdicts."""
+def assess_plan(steps: list[dict], runbook_actions: set[str] | None = None,
+                service: str | None = None) -> tuple[str, list[Verdict]]:
+    """Return the overall risk of a plan (the worst step) and per-step verdicts.
+
+    With incident context, an allowed action that is *not* in the selected runbook, or that
+    targets a different service than the one in trouble, is raised to HIGH risk so a human
+    must approve it. This stops "allowed but wrong" actions, e.g. a prompt-injected
+    `failover_database` during an unrelated incident.
+    """
     if not steps:
         return "blocked", [Verdict("", "", {}, "blocked", "empty plan")]
     verdicts = [check_step(s) for s in steps]
+    for v in verdicts:
+        if not v.allowed:
+            continue
+        issues = []
+        if runbook_actions is not None and v.action not in runbook_actions:
+            issues.append(f"'{v.action}' is not part of the selected runbook")
+        if service and v.target != service:
+            issues.append(f"targets {v.target} but the incident is on {service}")
+        if issues:
+            v.risk, v.reason = "high", "; ".join(issues) + " -> needs human approval"
     overall = max((v.risk for v in verdicts), key=RISK_ORDER.__getitem__)
     return overall, verdicts
+
+
+def may_execute(steps: list[dict], runbook_actions: set[str] | None, service: str | None,
+                approval: str | None) -> tuple[bool, str]:
+    """Final check run by the Executor itself, immediately before touching the infrastructure.
+
+    Re-applies the full policy so that nothing can reach execution by bypassing the Safety
+    Guard node (defence in depth).
+    """
+    risk, verdicts = assess_plan(steps, runbook_actions, service)
+    if risk == "blocked":
+        bad = next(v for v in verdicts if not v.allowed)
+        return False, f"blocked step '{bad.action}': {bad.reason}"
+    if risk == "high" and approval != "approved":
+        return False, "high-risk plan has no human approval"
+    return True, ""
 
 
 def allowlist_text() -> str:

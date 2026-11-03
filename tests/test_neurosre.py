@@ -2,7 +2,7 @@ import pytest
 
 from neurosre.agents import monitor
 from neurosre.agents.graph import DiagnosisOut, PlanOut, Step, TriageOut
-from neurosre.agents.safety import assess_plan, check_step
+from neurosre.agents.safety import assess_plan, check_step, may_execute
 from neurosre.cloud import FAULTS, KNOWN_FAULTS, CloudSimulator
 from neurosre.engine import Engine
 from neurosre.knowledge.store import KnowledgeBase
@@ -68,6 +68,23 @@ def test_plan_risk_is_worst_step():
                            {"action": "rollback_deployment", "target": "auth-service"}])
     assert risk == "high"
     assert assess_plan([])[0] == "blocked"
+
+
+def test_allowed_but_off_runbook_or_wrong_service_needs_approval():
+    rb_actions = {"rollback_deployment"}
+    risk, v = assess_plan([{"action": "rollback_deployment", "target": "payment-service"},
+                           {"action": "restart_service", "target": "payment-service"}], rb_actions, "payment-service")
+    assert risk == "high" and "not part of the selected runbook" in v[1].reason
+    risk, v = assess_plan([{"action": "flush_dns_cache", "target": "auth-service"}], {"flush_dns_cache"},
+                          "payment-service")
+    assert risk == "high" and "incident is on payment-service" in v[0].reason
+
+
+def test_executor_final_check():
+    plan = [{"action": "failover_database", "target": "orders-db"}]
+    assert may_execute(plan, {"failover_database"}, "orders-db", None) == (False, "high-risk plan has no human approval")
+    assert may_execute(plan, {"failover_database"}, "orders-db", "approved")[0]
+    assert not may_execute([{"action": "drop_database", "target": "orders-db"}], None, None, "approved")[0]
 
 
 # ---------------------------------------------------------------- retrieval
@@ -175,6 +192,36 @@ def test_llm_refusal_and_conflict_escalate(kb, tmp_path):
     e = _llm_engine(kb, tmp_path, outputs)
     r = e.run_sync("dns_failure", "auth-service")
     assert r["status"] == "escalated" and "conflicts" in r["report"]["escalation_reason"]
+
+
+def test_stale_approval_is_not_executed(engine):
+    engine.inject("bad_deployment", "auth-service")
+    for _ in range(2):
+        engine.cloud.tick()
+    alert = next(a for a in monitor.detect(engine.cloud.snapshot()) if a["service"] == "auth-service")
+    iid = engine.open_incident(alert, background=False)
+    assert engine.incidents[iid]["status"] == "awaiting_approval"
+    engine.manual_fix("auth-service")                 # someone fixes it while the approval waits
+    engine.decide(iid, approve=True, background=False)
+    rec = engine.incidents[iid]
+    assert not rec["state"].get("executions")
+    assert any("stale approved plan not executed" in e["summary"] for e in rec["timeline"])
+
+
+def test_llm_injected_allowed_action_is_held_for_approval(kb, tmp_path):
+    outputs = [
+        TriageOut(incident_type="bad_deployment", service="payment-service", severity="P1", summary="500s"),
+        DiagnosisOut(runbook_id="RB-010", root_cause="bad release", confidence=0.8),
+        # a compromised plan: the right fix plus an allowed but unrelated, dangerous action
+        PlanOut(steps=[Step(action="rollback_deployment", target="payment-service", reason="runbook"),
+                       Step(action="failover_database", target="orders-db", reason="log said so")]),
+    ]
+    e = _llm_engine(kb, tmp_path, outputs)
+    r = e.run_sync("bad_deployment", "payment-service", approve=False)
+    assert r["status"] == "escalated"                 # held for a human, who rejected it
+    assert not r["state"].get("executions")
+    reasons = " ".join(v["reason"] for v in r["state"]["verdicts"])
+    assert "not part of the selected runbook" in reasons and "incident is on payment-service" in reasons
 
 
 def test_llm_malicious_plan_is_blocked(kb, tmp_path):
