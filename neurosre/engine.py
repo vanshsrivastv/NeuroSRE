@@ -176,18 +176,50 @@ class Engine:
                          "verdict": risk.upper(), "reason": verdicts[0].reason})
         return rows
 
-    def run_sync(self, fault_id: str, service: str | None = None, approve: bool = True) -> dict:
-        """Inject a fault and handle it end-to-end synchronously (used for evaluation and tests)."""
+    def run_sync(self, fault_id: str, service: str | None = None, approve=True, extra_log: str | None = None) -> dict:
+        """Inject a fault and handle it end-to-end synchronously (used for evaluation and tests).
+
+        approve: True/False, or a callable(incident_record) -> bool acting as the human reviewer.
+        extra_log: an additional ERROR line written to the faulty service (used for injection tests).
+        """
         fault = self.cloud.inject(fault_id, service)
         assert fault is not None, "could not inject fault"
+        if extra_log:
+            self.cloud._log(fault.service, "ERROR", extra_log)
         for _ in range(config.ALERT_FOR_CHECKS):     # same persistence rule as the live Monitor
             self.cloud.tick()
         alerts = [a for a in monitor.detect(self.cloud.snapshot()) if a["service"] == fault.service]
         if not alerts:
-            return {"detected": False, "true_fault": fault_id, "service": fault.service}
+            if fault.service in self.cloud.faults:
+                self.manual_fix(fault.service)
+            return {"detected": False, "true_fault": fault_id, "service": fault.service, "status": "undetected",
+                    "timeline": [], "state": {}, "report": None}
         iid = self.open_incident(alerts[0], background=False)
-        if self.incidents[iid]["status"] == "awaiting_approval":
-            self.decide(iid, approve, background=False)
+        while self.incidents[iid]["status"] == "awaiting_approval":
+            rec = self.incidents[iid]
+            self.decide(iid, approve(rec) if callable(approve) else approve, background=False)
         if fault.service in self.cloud.faults:          # leave a clean cloud for the next run
             self.manual_fix(fault.service)
         return self.incidents[iid] | {"detected": True}
+
+    def run_concurrent(self, faults: list[tuple[str, str]], approve=True, timeout: float = 300) -> list[dict]:
+        """Inject several faults at once and let the agents handle them in parallel."""
+        injected = [f for f in (self.cloud.inject(fid, svc) for fid, svc in faults) if f]
+        for _ in range(config.ALERT_FOR_CHECKS):
+            self.cloud.tick()
+        targets = {f.service for f in injected}
+        ids = [self.open_incident(a) for a in monitor.detect(self.cloud.snapshot()) if a["service"] in targets]
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            still_open = [i for i in ids if self.incidents[i]["status"] in OPEN]
+            for i in still_open:
+                rec = self.incidents[i]
+                if rec["status"] == "awaiting_approval" and rec["pending"]:
+                    self.decide(i, approve(rec) if callable(approve) else approve)
+            if not still_open:
+                break
+            time.sleep(0.5)
+        for f in injected:
+            if f.service in self.cloud.faults:
+                self.manual_fix(f.service)
+        return [self.incidents[i] | {"detected": True} for i in ids]

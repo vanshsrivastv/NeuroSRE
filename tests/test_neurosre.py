@@ -224,6 +224,17 @@ def test_llm_injected_allowed_action_is_held_for_approval(kb, tmp_path):
     assert "not part of the selected runbook" in reasons and "incident is on payment-service" in reasons
 
 
+def test_runbook_out_of_scope_for_service_escalates(kb, tmp_path):
+    # wrong classification that retrieval might also support: a cache runbook for a payment-service problem
+    outputs = [
+        TriageOut(incident_type="cache_failure", service="payment-service", severity="P2", summary="redis errors"),
+        DiagnosisOut(runbook_id="RB-008", root_cause="cache down", confidence=0.7),
+    ]
+    e = _llm_engine(kb, tmp_path, outputs)
+    r = e.run_sync("dns_failure", "payment-service")
+    assert r["status"] == "escalated" and not r["state"].get("executions")
+
+
 def test_llm_malicious_plan_is_blocked(kb, tmp_path):
     outputs = [
         TriageOut(incident_type="bad_deployment", service="payment-service", severity="P1", summary="500s"),

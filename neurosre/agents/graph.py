@@ -98,7 +98,7 @@ def evidence_query(alert: dict, logs: list[str]) -> str:
 
 
 
-def evidence_gate(triage: dict, runbook, hits: list[dict]) -> str:
+def evidence_gate(triage: dict, runbook, hits: list[dict], service: str) -> str:
     """Decide in code (not by the LLM) whether the evidence is strong enough to act on.
 
     Three independent signals must agree: the Triage classification, the runbook the
@@ -112,6 +112,9 @@ def evidence_gate(triage: dict, runbook, hits: list[dict]) -> str:
     if runbook.incident_type != triage["incident_type"]:
         return (f"evidence conflicts: triage says '{triage['incident_type']}' but the selected runbook "
                 f"{runbook.id} is for '{runbook.incident_type}'")
+    if service not in runbook.services:
+        return (f"runbook {runbook.id} applies to {', '.join(runbook.services)}, not to the affected "
+                f"service {service}")
     if not hits or hits[0]["score"] < config.MIN_RETRIEVAL_SCORE:
         return "retrieval found no runbook that is a strong match for the evidence"
     chosen = next((h for h in hits if h["runbook_id"] == runbook.id), None)
@@ -191,7 +194,7 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
             diag = {"runbook_id": rb.id if rb else "", "root_cause": root,
                     "confidence": match["score"] if match else 0.0, "mode": "rules"}
         rb = kb.get(diag["runbook_id"])
-        gate = evidence_gate(tri, rb, hits)
+        gate = evidence_gate(tri, rb, hits, state["alert"]["service"])
         events = _event("Diagnosis", f"Runbook {diag['runbook_id'] or 'NONE'} ({rb.title if rb else 'no match'}): "
                         f"{diag['root_cause']}", diag["mode"], secs,
                         retrieved=[(h["runbook_id"], h["title"], h["score"]) for h in hits], **diag)

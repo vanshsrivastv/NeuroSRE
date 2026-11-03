@@ -15,7 +15,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 
-from .faults import FAULTS, FaultSpec
+from .faults import FAULTS, PARAPHRASES, FaultSpec
 
 BASELINE = {
     "api-gateway":     dict(kind="gateway",  cpu=35, memory=45, disk=40, latency_ms=80,  error_rate=0.3, replicas=3),
@@ -54,8 +54,12 @@ class ActiveFault:
 
 
 class CloudSimulator:
-    def __init__(self, seed: int | None = None):
+    def __init__(self, seed: int | None = None, log_style: str = "standard", noise: float = 0.0):
+        """log_style: "standard" or "paraphrased" (held-out wording for evaluation).
+        noise: per-tick probability of a misleading log line from an unrelated fault."""
         self.rng = random.Random(seed)
+        self.log_style = log_style
+        self.noise = noise
         self.lock = threading.RLock()
         self.logs: deque[dict] = deque(maxlen=600)
         self._seq = itertools.count(1)
@@ -112,7 +116,8 @@ class CloudSimulator:
                 st["extra"]["cert_days_left"] = -1
             self.faults[service] = fault
             self._apply_fault_effects(fault)
-            self._log(service, spec.logs[0][0], self._render(fault, spec.logs[0][1]))
+            first = self._templates(spec)[0]
+            self._log(service, first[0], self._render(fault, first[1]))
             return fault
 
     def _apply_fault_effects(self, fault: ActiveFault) -> None:
@@ -126,6 +131,15 @@ class CloudSimulator:
             st["extra"]["queue_depth"] = int(self.rng.uniform(*fault.spec.extra["queue_depth"]))
         if fault.spec.status == "down":
             st["restarts"] += 1
+
+    def _templates(self, spec: FaultSpec) -> list[tuple[str, str]]:
+        return PARAPHRASES[spec.id] if self.log_style == "paraphrased" else spec.logs
+
+    def _red_herring(self, fault: ActiveFault) -> None:
+        """A misleading WARN line borrowed from an unrelated fault (real logs are noisy)."""
+        other = self.rng.choice([f for f in FAULTS.values() if f.id != fault.spec.id and f.known])
+        _, tpl = self.rng.choice(self._templates(other)[1:] if other.id == "bad_deployment" else self._templates(other))
+        self._log(fault.service, "WARN", self._render(fault, tpl))
 
     def _render(self, fault: ActiveFault, template: str) -> str:
         st = self.services[fault.service]
@@ -240,9 +254,12 @@ class CloudSimulator:
                     self._apply_fault_effects(fault)
                     for _ in range(self.rng.randint(1, 2)):
                         # the first template of a deployment fault is a one-off event, not a repeating symptom
-                        pool = fault.spec.logs[1:] if fault.spec.id == "bad_deployment" else fault.spec.logs
+                        logs = self._templates(fault.spec)
+                        pool = logs[1:] if fault.spec.id == "bad_deployment" else logs
                         level, tpl = self.rng.choice(pool)
                         self._log(name, level, self._render(fault, tpl))
+                    if self.noise and self.rng.random() < self.noise:
+                        self._red_herring(fault)
                 else:
                     for k in ("cpu", "memory"):
                         st[k] = round(max(1, b[k] + self.rng.uniform(-5, 5)), 1)
