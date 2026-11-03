@@ -141,14 +141,14 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
         metrics = {k: v for k, v in alert["metrics"].items() if k not in ("base_replicas", "kind", "restarts")}
         user = (f"Alerting service: {alert['service']}\nSignals: {alert['signals']}\nMetrics: {json.dumps(metrics)}\n"
                 f"<logs>\n" + "\n".join(logs) + "\n</logs>")
-        out, secs = llm.structured(TriageOut, (
+        out, secs, model = llm.structured(TriageOut, (
             "You are the Triage agent of NeuroSRE, an autonomous Site Reliability Engineering system. Classify the "
             "incident from the metrics and logs. Pick the incident_type that best explains the evidence and the "
             "service that must be fixed (normally the alerting service). If the evidence does not clearly fit one of "
             "the listed types, answer 'unknown'; never force a match. Severity: P1 = outage or data at risk, "
             "P2 = major degradation, P3 = minor degradation, P4 = cosmetic. " + UNTRUSTED), user)
         if out:
-            tri = out.model_dump() | {"mode": "llm"}
+            tri = out.model_dump() | {"mode": "llm", "model": model}
         else:
             itype, conf = rules.classify(logs)
             tri = {"incident_type": itype, "service": alert["service"], "severity": rules.severity(itype),
@@ -163,7 +163,7 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
         query = evidence_query(state["alert"], logs)
         hits = [h.as_dict() for h in kb.search(query, k=config.RETRIEVAL_TOP_K)]
         tried = state.get("tried_runbooks", [])
-        out, secs = None, 0.0
+        out, secs, model = None, 0.0, ""
         if llm.enabled:
             cands = "\n\n".join(f"### {h['runbook_id']}: {h['title']} (score {h['score']})\n"
                                 f"{kb.get(h['runbook_id']).text[:1500]}" for h in hits)
@@ -171,13 +171,13 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
                     f"<logs>\n" + "\n".join(logs) + "\n</logs>\n\nCandidate runbooks:\n" + cands)
             if feedback:
                 user += f"\n\nFEEDBACK FROM PREVIOUS FAILED ATTEMPT: {feedback}\nRunbooks already tried: {tried}"
-            out, secs = llm.structured(DiagnosisOut, (
+            out, secs, model = llm.structured(DiagnosisOut, (
                 "You are the Diagnosis agent of NeuroSRE. Using ONLY the candidate runbooks retrieved from the "
                 "knowledge base, choose the runbook that matches the root cause of this incident and explain the "
                 "root cause in one or two sentences. If none of the candidates clearly matches the evidence, answer "
                 "runbook_id NONE: a wrong fix is worse than escalating to a human. " + UNTRUSTED), user)
         if out:
-            diag = out.model_dump() | {"mode": "llm"}
+            diag = out.model_dump() | {"mode": "llm", "model": model}
             if diag["runbook_id"] not in {h["runbook_id"] for h in hits}:   # NONE, or an id it was not shown
                 diag["runbook_id"] = ""
         else:
@@ -208,7 +208,7 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
         tri, diag = state["triage"], state["diagnosis"]
         rb = kb.get(diag["runbook_id"])
         service = tri["service"] if tri["service"] in SERVICES else state["alert"]["service"]
-        out, secs = None, 0.0
+        out, secs, model = None, 0.0, ""
         if llm.enabled and rb:
             snap = cloud.health(service)
             user = (f"Affected service: {service}\nCurrent metrics: {json.dumps(snap)}\n"
@@ -216,7 +216,7 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
                     f"Allowed actions:\n{allowlist_text()}")
             if state.get("feedback"):
                 user += f"\n\nFEEDBACK FROM PREVIOUS FAILED ATTEMPT: {state['feedback']}"
-            out, secs = llm.structured(PlanOut, (
+            out, secs, model = llm.structured(PlanOut, (
                 "You are the Remediation Planner of NeuroSRE. Turn the runbook's Remediation section into an ordered "
                 "list of commands for the affected service. Use only actions from the allow-list, exact service "
                 "names and integer parameters. Include every remediation command the runbook lists, and nothing that "
@@ -229,7 +229,8 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
             mode = "rules"
         cmds = "; ".join(f"{s['action']} {s['target']}" + "".join(f" {k}={v}" for k, v in s["params"].items())
                          for s in plan)
-        return {"plan": plan, "timeline": _event("Planner", f"Plan: {cmds or '(empty)'}", mode, secs, plan=plan)}
+        return {"plan": plan, "timeline": _event("Planner", f"Plan: {cmds or '(empty)'}", mode, secs, plan=plan,
+                                               model=model if mode == "llm" else "")}
 
     def plan_context(state: IncidentState) -> tuple[set[str] | None, str]:
         """Actions allowed by the selected runbook, and the service that is actually unhealthy."""

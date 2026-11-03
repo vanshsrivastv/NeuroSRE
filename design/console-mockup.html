@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuroSRE Console (design sample)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f3f6; --border: #e1e4ea; --border-strong: #cdd2da;
+  --text: #121826; --text-2: #4a5568; --text-3: #6b7484;
+  --accent: #1d4ed8; --accent-weak: #e8eefc; --on-accent: #ffffff;
+  --ok: #15803d; --ok-weak: #e7f5ec; --warn: #b45309; --warn-weak: #fdf2e3; --crit: #b91c1c; --crit-weak: #fbeaea;
+  --info: #0e7490; --log-bg: #fbfbfc;
+  --radius: 6px; --gap: 12px;
+}
+:root[data-theme="dark"] {
+  --bg: #0e1116; --surface: #151a21; --surface-2: #1b2129; --border: #262d37; --border-strong: #333c48;
+  --text: #e6e9ee; --text-2: #a9b1bd; --text-3: #8a93a1;
+  --accent: #6b9bff; --accent-weak: #1a2640; --on-accent: #0b1020;
+  --ok: #3fb96b; --ok-weak: #13281c; --warn: #e3a33b; --warn-weak: #2c2214; --crit: #f0635c; --crit-weak: #2e1617;
+  --info: #4cc2d6; --log-bg: #11161c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--font-sans); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--font-mono); font-size: 12.5px; }
+.muted { color: var(--text-3); }
+
+/* ---------- shell ---------- */
+.app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.rail { background: var(--surface); border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 4px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-weight: 600; letter-spacing: .2px; }
+.brand svg { color: var(--accent); }
+.brand small { display: block; font-weight: 400; color: var(--text-3); font-size: 11.5px; letter-spacing: 0; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius); color: var(--text-2); text-decoration: none; cursor: pointer; }
+.nav a:hover { background: var(--surface-2); color: var(--text); }
+.nav a.active { background: var(--accent-weak); color: var(--accent); font-weight: 500; }
+.nav .count { margin-left: auto; font-size: 11.5px; padding: 0 7px; border-radius: 10px; background: var(--crit); color: #fff; font-weight: 600; }
+.rail-foot { margin-top: auto; padding: 10px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); line-height: 1.6; }
+.rail-foot b { color: var(--text-2); font-weight: 500; }
+
+main { min-width: 0; display: flex; flex-direction: column; }
+.topbar { height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 2; }
+.crumbs { color: var(--text-3); }
+.crumbs b { color: var(--text); font-weight: 600; }
+.spacer { flex: 1; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid var(--border); border-radius: 13px; font-size: 12.5px; color: var(--text-2); background: var(--surface); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
+.dot.warn { background: var(--warn); } .dot.crit { background: var(--crit); }
+.live .dot { animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.icon-btn { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: pointer; color: var(--text-2); }
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+.content { padding: 18px 20px 28px; display: grid; gap: var(--gap); }
+
+/* ---------- KPIs ---------- */
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.kpi { padding: 12px 16px; border-left: 1px solid var(--border); }
+.kpi:first-child { border-left: 0; }
+.kpi .label { font-size: 12px; color: var(--text-3); }
+.kpi .value { font-size: 22px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.kpi .value small { font-size: 13px; font-weight: 400; color: var(--text-3); }
+.kpi .delta { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+/* ---------- panels ---------- */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+.panel-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.panel-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.panel-head .muted { font-size: 12px; }
+
+/* ---------- toolbar ---------- */
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px; }
+.toolbar label.lbl { font-size: 12px; color: var(--text-3); }
+.select, .input { height: 30px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); padding: 0 8px; }
+.btn { height: 30px; padding: 0 12px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--crit); }
+.sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
+.switch i { width: 30px; height: 17px; border-radius: 9px; background: var(--border-strong); position: relative; transition: background .2s; }
+.switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.switch.on i { background: var(--accent); } .switch.on i::after { transform: translateX(13px); }
+
+/* ---------- services ---------- */
+.services { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.svc { padding: 12px 14px; border-left: 1px solid var(--border); position: relative; }
+.svc:first-child { border-left: 0; }
+.svc .name { display: flex; align-items: center; gap: 7px; font-weight: 500; }
+.svc .kind { font-size: 11.5px; color: var(--text-3); margin: 1px 0 8px 14px; }
+.svc .stats { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-family: var(--font-mono); font-size: 12px; color: var(--text-2); }
+.svc .stats span:nth-child(odd) { color: var(--text-3); }
+.svc .stats .bad { color: var(--crit); font-weight: 500; }
+.svc .stats .mid { color: var(--warn); font-weight: 500; }
+.svc svg.spark { display: block; width: 100%; height: 28px; margin-top: 8px; }
+.svc.degraded { background: linear-gradient(var(--warn-weak), var(--warn-weak)) top / 100% 3px no-repeat; }
+.svc.down { background: linear-gradient(var(--crit-weak), var(--crit-weak)); }
+.state { font-size: 11px; font-weight: 600; letter-spacing: .4px; margin-left: auto; }
+.state.ok { color: var(--ok); } .state.warn { color: var(--warn); } .state.crit { color: var(--crit); }
+
+/* ---------- two column ---------- */
+.split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--gap); align-items: start; }
+
+/* logs */
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius); overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 3px 10px; font-size: 12px; cursor: pointer; color: var(--text-2); }
+.seg button + button { border-left: 1px solid var(--border-strong); }
+.seg button.on { background: var(--surface-2); color: var(--text); font-weight: 500; }
+.logs { height: 520px; overflow: auto; background: var(--log-bg); font-family: var(--font-mono); font-size: 12px; line-height: 1.65; padding: 8px 0; }
+.log { display: grid; grid-template-columns: 62px 44px 118px 1fr; gap: 8px; padding: 0 14px; white-space: nowrap; }
+.log:hover { background: var(--surface-2); }
+.log .t { color: var(--text-3); }
+.log .lv { font-weight: 500; }
+.log .lv.INFO { color: var(--text-3); } .log .lv.WARN { color: var(--warn); } .log .lv.ERROR { color: var(--crit); }
+.log .s { color: var(--info); overflow: hidden; text-overflow: ellipsis; }
+.log .m { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; }
+.log.ERROR .m { color: var(--text); }
+.log.ctl .m { color: var(--accent); }
+
+/* incident */
+.inc-head { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.inc-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.inc-title h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 4px; font-size: 11.5px; font-weight: 600; border: 1px solid transparent; }
+.tag.crit { background: var(--crit-weak); color: var(--crit); }
+.tag.warn { background: var(--warn-weak); color: var(--warn); }
+.tag.ok { background: var(--ok-weak); color: var(--ok); }
+.tag.neutral { background: var(--surface-2); color: var(--text-2); border-color: var(--border); }
+.tag.model { background: var(--accent-weak); color: var(--accent); font-weight: 500; }
+.inc-meta { margin-top: 4px; font-size: 12.5px; color: var(--text-3); }
+.inc-meta b { color: var(--text-2); font-weight: 500; }
+
+.steps { display: flex; padding: 12px 14px; gap: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.step { flex: 1; min-width: 72px; position: relative; padding-top: 14px; font-size: 11px; color: var(--text-3); text-align: center; white-space: nowrap; }
+.step::before { content: ""; position: absolute; top: 4px; left: 0; right: 0; height: 2px; background: var(--border); }
+.step::after { content: ""; position: absolute; top: 0; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong); }
+.step.done { color: var(--text-2); } .step.done::before { background: var(--accent); } .step.done::after { background: var(--accent); border-color: var(--accent); }
+.step.now { color: var(--warn); font-weight: 600; } .step.now::before { background: linear-gradient(90deg, var(--accent) 50%, var(--border) 50%); }
+.step.now::after { border-color: var(--warn); background: var(--warn); box-shadow: 0 0 0 3px var(--warn-weak); }
+
+.approval { margin: 12px 14px; border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-weak); }
+.approval .a-head { padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; }
+.approval .a-head svg { color: var(--warn); flex: none; margin-top: 1px; }
+.approval .a-head b { display: block; }
+.approval .a-head span { font-size: 12.5px; color: var(--text-2); }
+table.plan { width: 100%; border-collapse: collapse; background: var(--surface); border-top: 1px solid var(--border); }
+table.plan th { text-align: left; font-size: 11.5px; font-weight: 500; color: var(--text-3); padding: 6px 12px; border-bottom: 1px solid var(--border); }
+table.plan td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 12.5px; }
+table.plan td.cmd { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+.a-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface); border-radius: 0 0 var(--radius) var(--radius); }
+.a-foot .input { flex: 1; max-width: 220px; }
+
+.timeline { list-style: none; margin: 0; padding: 4px 14px 14px; }
+.ev { display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 9px 0; position: relative; }
+.ev::before { content: ""; position: absolute; left: 8px; top: 26px; bottom: -9px; width: 1px; background: var(--border); }
+.ev:last-child::before { display: none; }
+.ev .node { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface); display: grid; place-items: center; color: var(--text-3); margin-top: 1px; }
+.ev.ok .node { border-color: var(--ok); color: var(--ok); }
+.ev.warn .node { border-color: var(--warn); color: var(--warn); }
+.ev .row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ev .agent { font-weight: 600; font-size: 13px; }
+.ev .when { margin-left: auto; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); }
+.ev .text { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.ev .text code { font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); padding: 0 4px; border-radius: 3px; color: var(--text); }
+.ev .chips { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.chip { font-family: var(--font-mono); font-size: 11.5px; padding: 1px 7px; border: 1px solid var(--border); border-radius: 4px; color: var(--text-2); background: var(--surface-2); }
+.chip b { color: var(--text); font-weight: 500; }
+
+.note { font-size: 12px; color: var(--text-3); text-align: center; padding: 6px; }
+
+@media (max-width: 1280px) { .services { grid-template-columns: repeat(3, 1fr); } .svc:nth-child(4) { border-left: 0; } .svc:nth-child(n+4) { border-top: 1px solid var(--border); } }
+@media (max-width: 1080px) { .split { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, 1fr); } .app { grid-template-columns: 64px 1fr; } .nav span, .brand div, .rail-foot { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= left rail ================= -->
+  <aside class="rail" aria-label="Main navigation">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 6.5v5.2c0 5 3.8 9.3 9 10.3 5.2-1 9-5.3 9-10.3V6.5L12 2Z"/><path d="M7.5 12.5h2.2l1.5-3.2 2.4 6 1.4-2.8h1.5"/></svg>
+      <div>NeuroSRE<small>Autonomous incident response</small></div>
+    </div>
+    <nav class="nav">
+      <a class="active" aria-current="page"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Overview</span></a>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span>Incidents</span><span class="count">1</span></a>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 6.5v5.2c0 5 3.8 9.3 9 10.3 5.2-1 9-5.3 9-10.3V6.5L12 2Z"/><path d="m9 12 2 2 4-4"/></svg><span>Safety policy</span></a>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Zm0 0A2 2 0 0 0 6 22h13"/><path d="M9 7h6M9 11h4"/></svg><span>Runbooks</span></a>
+      <a><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-7"/></svg><span>Metrics</span></a>
+    </nav>
+    <div class="rail-foot">
+      Environment <b>sim-cluster</b><br>
+      Region <b>ap-south-1</b><br>
+      Knowledge base <b>12 runbooks</b>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ================= top bar ================= -->
+    <header class="topbar">
+      <div class="crumbs">sim-cluster / <b>Overview</b></div>
+      <div class="spacer"></div>
+      <span class="pill live"><span class="dot"></span>Live · updated 1s ago</span>
+      <span class="pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></svg>groq · gpt-oss-120b</span>
+      <button class="icon-btn" id="theme" title="Switch light / dark theme" aria-label="Switch light or dark theme">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+    </header>
+
+    <div class="content">
+      <!-- ================= KPIs ================= -->
+      <section class="kpis" aria-label="Key indicators">
+        <div class="kpi"><div class="label">Services healthy</div><div class="value">5<small> / 6</small></div><div class="delta">payment-service degraded</div></div>
+        <div class="kpi"><div class="label">Open incidents</div><div class="value">1</div><div class="delta">1 awaiting approval</div></div>
+        <div class="kpi"><div class="label">Auto-resolved</div><div class="value">37</div><div class="delta">this session</div></div>
+        <div class="kpi"><div class="label">Escalated to human</div><div class="value">4</div><div class="delta">3 no runbook · 1 conflict</div></div>
+        <div class="kpi"><div class="label">Time to resolve (median)</div><div class="value">14.2<small> s</small></div><div class="delta">detection to verified recovery</div></div>
+      </section>
+
+      <!-- ================= services ================= -->
+      <section class="panel" aria-label="Services">
+        <div class="panel-head">
+          <h2>Services</h2><span class="muted">6 services · metrics every 2 s</span>
+          <div class="spacer"></div>
+          <div class="toolbar" style="padding:0">
+            <label class="lbl" for="f">Inject fault</label>
+            <select id="f" class="select"><option>Faulty release deployed</option><option>Memory leak</option><option>Disk full</option><option>System clock drift (no runbook)</option></select>
+            <select class="select" aria-label="Target service"><option>payment-service</option><option>auth-service</option><option>api-gateway</option></select>
+            <button class="btn">Inject</button>
+            <button class="btn">Random</button>
+            <span class="sep"></span>
+            <span class="switch"><i></i>Auto chaos</span>
+            <span class="switch on"><i></i>Hard mode</span>
+          </div>
+        </div>
+        <div class="services" id="services"></div>
+      </section>
+
+      <!-- ================= logs + incident ================= -->
+      <div class="split">
+        <section class="panel" aria-label="Log stream">
+          <div class="panel-head">
+            <h2>Log stream</h2><span class="muted">all services</span>
+            <div class="spacer"></div>
+            <div class="seg" role="group" aria-label="Level filter"><button class="on">All</button><button>Warn+</button><button>Error</button></div>
+            <select class="select" aria-label="Service filter" style="height:26px;font-size:12px"><option>All services</option></select>
+          </div>
+          <div class="logs" id="logs"></div>
+        </section>
+
+        <section class="panel" aria-label="Incident detail">
+          <div class="inc-head">
+            <div class="inc-title">
+              <span class="tag crit">P1</span>
+              <h3>Faulty release deployed</h3>
+              <span class="tag neutral">INC-0042</span>
+            </div>
+            <div class="inc-meta"><b>payment-service</b> · opened 19:42:08 · runbook <b>RB-010</b> · attempt 1 of 3</div>
+          </div>
+
+          <div class="steps" aria-label="Incident lifecycle">
+            <div class="step done">Detected</div><div class="step done">Triaged</div><div class="step done">Diagnosed</div>
+            <div class="step done">Planned</div><div class="step done">Checked</div><div class="step now">Approval</div>
+            <div class="step">Executing</div><div class="step">Verifying</div><div class="step">Resolved</div>
+          </div>
+
+          <div class="approval" role="region" aria-label="Approval required">
+            <div class="a-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+              <div><b>Approval required: high-risk plan</b><span>Rolling back a release changes production code. Review the plan before it runs.</span></div>
+            </div>
+            <table class="plan">
+              <thead><tr><th>Command</th><th>Risk</th><th>Policy</th></tr></thead>
+              <tbody><tr><td class="cmd">rollback_deployment payment-service</td><td><span class="tag warn">HIGH</span></td><td>Roll back to the previous release (v2.4.0)</td></tr></tbody>
+            </table>
+            <div class="a-foot">
+              <input class="input" value="V. Srivastava" aria-label="Approving engineer">
+              <div class="spacer"></div>
+              <button class="btn danger">Reject and escalate</button>
+              <button class="btn primary">Approve and run</button>
+            </div>
+          </div>
+
+          <ol class="timeline" aria-label="Agent timeline">
+            <li class="ev"><span class="node"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg></span><div>
+              <div class="row"><span class="agent">Monitor</span><span class="when">19:42:08</span></div>
+              <div class="text">Error rate 38.6% on payment-service (threshold 10%), persisted for 2 checks.</div></div></li>
+            <li class="ev"><span class="node"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg></span><div>
+              <div class="row"><span class="agent">Triage</span><span class="tag model">LLM</span><span class="muted mono">1.4 s</span><span class="when">19:42:09</span></div>
+              <div class="text">Faulty release on payment-service, P1. 5xx errors began immediately after build v2.5.0 rolled out.</div></div></li>
+            <li class="ev"><span class="node"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg></span><div>
+              <div class="row"><span class="agent">Diagnosis</span><span class="tag model">LLM</span><span class="muted mono">1.1 s</span><span class="when">19:42:10</span></div>
+              <div class="text">Root cause: a bug introduced in release v2.5.0. Selected <code>RB-010 Faulty Release Deployed</code>.</div>
+              <div class="chips"><span class="chip"><b>RB-010</b> 0.61</span><span class="chip">RB-004 0.43</span><span class="chip">RB-005 0.38</span></div></div></li>
+            <li class="ev ok"><span class="node"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span><div>
+              <div class="row"><span class="agent">Evidence gate</span><span class="when">19:42:10</span></div>
+              <div class="text">Triage, chosen runbook and independent retrieval agree. Runbook applies to payment-service.</div></div></li>
+            <li class="ev"><span class="node"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg></span><div>
+              <div class="row"><span class="agent">Planner</span><span class="tag model">LLM</span><span class="muted mono">0.9 s</span><span class="when">19:42:11</span></div>
+              <div class="text">Plan: <code>rollback_deployment payment-service</code></div></div></li>
+            <li class="ev warn"><span class="node"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 7v6m0 4h.01"/></svg></span><div>
+              <div class="row"><span class="agent">Safety guard</span><span class="when">19:42:11</span></div>
+              <div class="text">Overall risk HIGH. Waiting for a named engineer to approve.</div></div></li>
+          </ol>
+        </section>
+      </div>
+      <div class="note">Design sample with static example data. Use the moon / sun button to switch themes.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ---------- theme toggle (persists per browser) ----------
+const root = document.documentElement;
+const saved = (() => { try { return localStorage.getItem("nsre-theme"); } catch { return null; } })();
+root.dataset.theme = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+document.getElementById("theme").onclick = () => {
+  root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem("nsre-theme", root.dataset.theme); } catch {}
+};
+
+// ---------- example services with sparklines ----------
+const services = [
+  ["api-gateway", "gateway", "ok", {cpu: 34, mem: 46, lat: "84 ms", err: "0.4%", rep: 3}, [3,4,3,5,4,3,4,4,3,5,4,4,3,4,4,3,4,3,4,4]],
+  ["auth-service", "application", "ok", {cpu: 27, mem: 52, lat: "61 ms", err: "0.2%", rep: 2}, [2,2,3,2,2,3,2,2,2,3,2,2,3,2,2,2,3,2,2,2]],
+  ["payment-service", "application", "warn", {cpu: 31, mem: 55, lat: "540 ms", err: "38.6%", rep: 2, ver: "v2.5.0"}, [2,2,3,2,2,3,2,2,2,3,2,2,30,36,41,38,39,37,40,38]],
+  ["orders-db", "database", "ok", {cpu: 41, mem: 64, lat: "15 ms", err: "0.1%", rep: 2}, [1,1,2,1,1,1,2,1,1,1,1,2,1,1,1,2,1,1,1,1]],
+  ["redis-cache", "cache", "ok", {cpu: 16, mem: 59, lat: "2 ms", err: "0.0%", rep: 1}, [0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,0,0]],
+  ["worker-queue", "queue", "ok", {cpu: 29, mem: 41, lat: "205 ms", err: "0.3%", rep: 2}, [2,3,2,2,3,2,2,3,2,2,3,2,2,3,2,2,3,2,2,3]],
+];
+function spark(points, cls) {
+  const max = Math.max(10, ...points), w = 200, h = 28;
+  const xy = points.map((p, i) => `${(i / (points.length - 1)) * w},${h - 2 - (p / max) * (h - 4)}`).join(" ");
+  const color = cls === "warn" ? "var(--warn)" : cls === "crit" ? "var(--crit)" : "var(--text-3)";
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="${xy}" fill="none" stroke="${color}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
+document.getElementById("services").innerHTML = services.map(([name, kind, st, m, pts]) => {
+  const label = {ok: "HEALTHY", warn: "DEGRADED", crit: "DOWN"}[st];
+  const errCls = parseFloat(m.err) >= 10 ? "bad" : "";
+  const latCls = parseInt(m.lat) >= 400 ? "mid" : "";
+  return `<div class="svc ${st === "warn" ? "degraded" : st === "crit" ? "down" : ""}">
+    <div class="name"><span class="dot ${st === "ok" ? "" : st}"></span>${name}<span class="state ${st}">${label}</span></div>
+    <div class="kind">${kind}${m.ver ? " · " + m.ver : ""}</div>
+    <div class="stats"><span>cpu</span><span>${m.cpu}%</span><span>mem</span><span>${m.mem}%</span>
+      <span>p99</span><span class="${latCls}">${m.lat}</span><span>errors</span><span class="${errCls}">${m.err}</span>
+      <span>replicas</span><span>${m.rep}</span></div>
+    ${spark(pts, st)}</div>`;
+}).join("");
+
+// ---------- example log stream ----------
+const logs = [
+  ["19:42:14", "ERROR", "payment-service", "TypeError: cannot read property 'discount' of undefined (build v2.5.0)"],
+  ["19:42:13", "INFO", "orders-db", "checkpoint complete: wrote 4,812 buffers"],
+  ["19:42:13", "INFO", "api-gateway", "POST /api/v1/checkout 502 1,204 ms"],
+  ["19:42:12", "ERROR", "payment-service", "5xx responses jumped right after release v2.5.0"],
+  ["19:42:12", "INFO", "worker-queue", "job completed: invoice-pdf #7731"],
+  ["19:42:11", "WARN", "payment-service", "cached DNS answer for redis-cache.internal is stale"],
+  ["19:42:11", "INFO", "redis-cache", "keyspace hits=7,115 misses=70"],
+  ["19:42:10", "ERROR", "payment-service", "TypeError: cannot read property 'discount' of undefined (build v2.5.0)"],
+  ["19:42:10", "INFO", "auth-service", "token issued for user u-5091"],
+  ["19:42:09", "INFO", "orders-db", "autovacuum: processed table orders"],
+  ["19:42:08", "ERROR", "payment-service", "5xx responses jumped right after release v2.5.0"],
+  ["19:42:07", "INFO", "api-gateway", "GET /api/v1/orders 200 71 ms"],
+  ["19:42:06", "INFO", "payment-service", "release v2.5.0 finished rolling out"],
+  ["19:42:05", "INFO", "worker-queue", "consumer heartbeat ok"],
+  ["19:42:04", "INFO", "auth-service", "session refreshed for user u-3794"],
+  ["19:41:58", "INFO", "api-gateway", "[neuroctl] scale_service replicas=5 -> api-gateway scaled to 5 replicas | recovered", "ctl"],
+  ["19:41:57", "WARN", "api-gateway", "p99 response time up to 1,412 ms, worker pool saturated"],
+  ["19:41:55", "WARN", "api-gateway", "container throttled: cpu usage 96% of quota"],
+  ["19:41:54", "INFO", "redis-cache", "background save completed"],
+  ["19:41:52", "INFO", "orders-db", "replication lag 0.2 s"],
+  ["19:41:51", "INFO", "payment-service", "payment authorised txn-8605 amount=893.00 INR"],
+  ["19:41:49", "INFO", "auth-service", "GET /health 200 2 ms"],
+];
+document.getElementById("logs").innerHTML = logs.map(([t, lv, s, m, extra]) =>
+  `<div class="log ${lv} ${extra || ""}"><span class="t">${t}</span><span class="lv ${lv}">${lv}</span><span class="s">${s}</span><span class="m" title="${m.replace(/"/g, "&quot;")}">${m}</span></div>`
+).join("");
+</script>
+</body>
+</html>

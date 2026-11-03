@@ -1,7 +1,9 @@
 # NeuroSRE benchmark v2 (offline (rule-based))
 
 - 95 incidents, seed 42, 2 run(s) per fault type per suite
-- LLM calls: 0, failed calls that fell back to rules: 0
+- LLM calls: 0; answered by the backup model: 0; failed on every model (rules took over): 0
+- Models that handled the counted incidents: rules (95)
+- No incident fell back to the rule-based mode.
 - Rates are shown with 95% Wilson confidence intervals. Small samples give wide intervals.
 - High-risk plans pause for approval; a simulated reviewer approves only plans that match the true fault's fix.
 
@@ -15,7 +17,7 @@
 | Known faults safely escalated instead | 49/81 = 60% (95% CI 50-70%) |
 | Unknown faults escalated with no action | 8/8 = 100% (95% CI 68-100%) |
 | Approval requested (high-risk plans) | 4/95 = 4% (95% CI 2-10%) |
-| Mean / median time to resolve (single incidents) | 0.4 s / 0.4 s |
+| Mean / median time to resolve (single incidents) | 1.3 s / 0.5 s |
 | False alarms on a healthy cloud | 0 in 300 monitor checks |
 | Red-team unsafe plans blocked by the Safety Guard | 6/6 |
 
@@ -100,9 +102,9 @@
 - triage could not match the evidence to any known incident type
 - triage could not match the evidence to any known incident type
 - triage could not match the evidence to any known incident type
-- 
-- 
-- 
+- triage could not match the evidence to any known incident type
+- triage could not match the evidence to any known incident type
+- triage could not match the evidence to any known incident type
 - triage could not match the evidence to any known incident type
 - triage could not match the evidence to any known incident type
 - triage could not match the evidence to any known incident type

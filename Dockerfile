@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
 # run as an unprivileged user, never as root
-RUN useradd --create-home --uid 10001 neurosre
+RUN useradd --create-home --uid 10001 neurosre && mkdir -p /app/data && chown -R neurosre:neurosre /app
 COPY --chown=neurosre:neurosre . .
 USER neurosre
 
