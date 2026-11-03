@@ -49,6 +49,7 @@ class IncidentState(TypedDict, total=False):
     risk: str
     verdicts: list[dict]
     approval: str
+    approved_by: str
     executions: list[dict]
     attempts: int
     feedback: str
@@ -245,10 +246,13 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
                 "timeline": _event("Safety Guard", f"Overall risk {risk.upper()} -> {policy} ({txt})", verdicts=vd)}
 
     def approval_node(state: IncidentState):
-        decision = interrupt({"incident_id": state["incident_id"], "plan": state["plan"], "risk": state["risk"],
-                              "verdicts": state["verdicts"]})
-        decision = "approved" if str(decision).lower().startswith("approve") else "rejected"
-        return {"approval": decision, "timeline": _event("Human Approval", f"On-call engineer {decision} the plan")}
+        answer = interrupt({"incident_id": state["incident_id"], "plan": state["plan"], "risk": state["risk"],
+                            "verdicts": state["verdicts"]})
+        answer = answer if isinstance(answer, dict) else {"decision": answer}
+        decision = "approved" if str(answer.get("decision")).lower().startswith("approve") else "rejected"
+        by = answer.get("by") or "unnamed engineer"
+        return {"approval": decision, "approved_by": by,
+                "timeline": _event("Human Approval", f"{by} {decision} the plan", by=by)}
 
     def executor_node(state: IncidentState):
         runbook_actions, svc = plan_context(state)
@@ -299,7 +303,8 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
             "incident_type": state["triage"]["incident_type"], "severity": state["triage"]["severity"],
             "summary": state["triage"]["summary"], "runbook_id": state.get("diagnosis", {}).get("runbook_id"),
             "root_cause": state.get("diagnosis", {}).get("root_cause"), "risk": state.get("risk"),
-            "approval": state.get("approval"), "actions": state.get("executions", []),
+            "approval": (f"{state['approval']} by {state.get('approved_by')}" if state.get("approval") else None),
+            "actions": state.get("executions", []),
             "attempts": state.get("attempts", 0), "status": state.get("status"),
             "escalation_reason": state.get("escalation_reason"),
             "detected_at": state["started_at"], "closed_at": end,

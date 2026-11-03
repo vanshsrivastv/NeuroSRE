@@ -40,7 +40,13 @@ CSS = """
 .badge.t {background: transparent; color: #64748b; font-weight: 400;}
 .ev.Escalation, .ev.Safety-Guard.blocked {border-left-color: #c62828;}
 .ev.Verifier {border-left-color: #0284c7;} .ev.Reporter {border-left-color: #2e7d32;}
-.ev.Human-Approval {border-left-color: #0d9488;}
+.ev.Human-Approval {border-left-color: #0d9488;} .ev.Evidence-Gate {border-left-color: #ef6c00;}
+.stages {display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 8px 0;}
+.stg {font-size: 0.66rem; padding: 2px 7px; border-radius: 9px; background: rgba(128,128,128,.14); opacity: .6;}
+.stg.done {opacity: 1; background: rgba(124,58,237,.18);}
+.stg.now {opacity: 1; background: #7c3aed; color: white; font-weight: 700;}
+.stg.bad {opacity: 1; background: #c62828; color: white; font-weight: 700;}
+.stg.good {opacity: 1; background: #2e7d32; color: white; font-weight: 700;}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -90,7 +96,13 @@ with st.sidebar:
                                    help="Inject a random fault whenever the cloud is idle.")
     engine.auto_interval = st.slider("Seconds between auto faults", 10, 120, int(engine.auto_interval))
 
+    hard = st.toggle("Hard mode: unseen log wording + misleading lines",
+                     value=engine.cloud.log_style == "paraphrased",
+                     help="Uses held-out log wording the system was never tuned on, plus red-herring log lines.")
+    engine.cloud.log_style, engine.cloud.noise = ("paraphrased", 0.6) if hard else ("standard", 0.0)
+
     st.subheader("Engineer actions")
+    st.text_input("On-call engineer (needed to approve)", key="engineer", placeholder="your name")
     for svc in sorted(engine.quarantined):
         if st.button(f"🔧 Mark {svc} fixed manually", width="stretch"):
             engine.manual_fix(svc)
@@ -128,6 +140,23 @@ def render_timeline(events: list[dict]) -> None:
         out.append(f"<div class='ev {cls}'><span class='a'>{html.escape(e['agent'])}</span>{badge}{secs}"
                    f"<span class='badge t'>{fmt_ts(e['ts'])}</span><div class='s'>{html.escape(e['summary'])}</div></div>")
     st.markdown("".join(out) or "<i>No agent activity yet.</i>", unsafe_allow_html=True)
+
+
+LIFECYCLE = ["DETECTED", "TRIAGED", "DIAGNOSED", "PLANNED", "CHECKED", "AWAITING APPROVAL", "EXECUTING",
+             "VERIFYING", "RESOLVED"]
+
+
+def render_stages(stage: str) -> None:
+    final_bad = stage in ("ESCALATED", "BLOCKED", "ERROR", "ESCALATING")
+    current = {"APPROVAL GIVEN": "EXECUTING", "VERIFIED": "VERIFYING", "RETRYING": "DIAGNOSED"}.get(stage, stage)
+    idx = LIFECYCLE.index(current) if current in LIFECYCLE else -1
+    chips = []
+    for i, name in enumerate(LIFECYCLE):
+        cls = "good" if current == "RESOLVED" and name == "RESOLVED" else ("now" if i == idx else ("done" if i < idx else ""))
+        chips.append(f"<span class='stg {cls}'>{name}</span>")
+    if final_bad or stage == "RETRYING":
+        chips.append(f"<span class='stg {'bad' if final_bad else 'now'}'>{stage}</span>")
+    st.markdown(f"<div class='stages'>{''.join(chips)}</div>", unsafe_allow_html=True)
 
 
 def plan_table(rows: list[dict]) -> pd.DataFrame:
@@ -170,20 +199,26 @@ def live_view():
         if not incs:
             st.info("All quiet. Inject a fault from the sidebar or switch on Auto chaos mode.")
             return
-        labels = [f"{STATUS_ICON.get(i['status'], '')} {i['id']} · {i['service']} · {i['status']}" for i in incs[:15]]
+        labels = [f"{STATUS_ICON.get(i['status'], '')} {i['id']} · {i['service']} · {i.get('stage', i['status'])}"
+                  for i in incs[:15]]
         pick = st.selectbox("Incident", range(len(labels)), format_func=labels.__getitem__, label_visibility="collapsed")
         inc = incs[pick]
+        render_stages(inc.get("stage", inc["status"].upper()))
         if inc["status"] == "awaiting_approval" and inc["pending"]:
             with st.container(border=True):
                 st.markdown(f"**✋ Human approval needed: {inc['id']} on {inc['service']}**  \n"
                             f"Risk level **{inc['pending']['risk'].upper()}**. Review the plan:")
                 st.dataframe(plan_table(inc["pending"]["verdicts"]), hide_index=True, width="stretch")
+                who = (st.session_state.get("engineer") or "").strip()
+                if not who:
+                    st.caption("Enter your name under *Engineer actions* in the sidebar to approve or reject.")
                 a, b = st.columns(2)
-                if a.button("✅ Approve & execute", key=f"ap{inc['id']}", type="primary", width="stretch"):
-                    engine.decide(inc["id"], True)
+                if a.button("✅ Approve & execute", key=f"ap{inc['id']}", type="primary", width="stretch",
+                            disabled=not who):
+                    engine.decide(inc["id"], True, by=who)
                     st.rerun(scope="fragment")
-                if b.button("❌ Reject & escalate", key=f"rj{inc['id']}", width="stretch"):
-                    engine.decide(inc["id"], False)
+                if b.button("❌ Reject & escalate", key=f"rj{inc['id']}", width="stretch", disabled=not who):
+                    engine.decide(inc["id"], False, by=who)
                     st.rerun(scope="fragment")
         with st.container(height=420 if inc["status"] == "awaiting_approval" else 470):
             render_timeline(inc["timeline"])
@@ -204,7 +239,7 @@ with tab_hist:
     else:
         df = pd.DataFrame([{"id": r["incident_id"], "time": fmt_ts(r["detected_at"]), "service": r["service"],
                             "classified as": r["incident_type"], "actual fault": r["true_fault"],
-                            "runbook": r["runbook_id"], "risk": r["risk"], "attempts": r["attempts"],
+                            "runbook": r["runbook_id"], "risk": r["risk"], "approval": r["approval"], "attempts": r["attempts"],
                             "status": r["status"], "MTTR (s)": r["mttr_seconds"], "engine": r["mode"]} for r in reports])
         st.dataframe(df, hide_index=True, width="stretch")
         rid = st.selectbox("Open report", [r["incident_id"] for r in reports])

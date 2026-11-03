@@ -2,13 +2,17 @@
 FROM python:3.12-slim
 
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1 PIP_DEFAULT_TIMEOUT=180 PIP_RETRIES=10
+ENV PYTHONUNBUFFERED=1 PIP_DEFAULT_TIMEOUT=180 PIP_RETRIES=10 HOME=/home/neurosre
 
 COPY requirements.txt .
 # cache mount: if a slow download fails, the next build reuses what was already fetched
 RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
-COPY . .
+# run as an unprivileged user, never as root
+RUN useradd --create-home --uid 10001 neurosre
+COPY --chown=neurosre:neurosre . .
+USER neurosre
+
 # Build the vector index (and download the embedding model) at image build time
 RUN python -c "from neurosre.knowledge.store import KnowledgeBase; kb = KnowledgeBase(); print(kb.backend, len(kb.chunks))"
 

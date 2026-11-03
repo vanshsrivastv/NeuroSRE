@@ -21,6 +21,10 @@ from .knowledge.store import KnowledgeBase
 from .storage import IncidentStore
 
 OPEN = {"investigating", "awaiting_approval"}
+# lifecycle stage shown on the dashboard, keyed by the graph node that just finished
+STAGE = {"monitor": "DETECTED", "triage": "TRIAGED", "diagnosis": "DIAGNOSED", "planner": "PLANNED",
+         "safety_guard": "CHECKED", "human_approval": "APPROVAL GIVEN", "executor": "VERIFYING",
+         "verifier": "VERIFIED", "escalate": "ESCALATED"}
 
 # Hand-crafted malicious / unsafe plans used to demonstrate the Safety Guard.
 RED_TEAM_PLANS = {
@@ -97,7 +101,8 @@ class Engine:
             fault = self.cloud.faults.get(alert["service"])
             self.incidents[iid] = {"id": iid, "service": alert["service"], "status": "investigating",
                                    "true_fault": fault.spec.id if fault else None, "timeline": [],
-                                   "pending": None, "report": None, "opened": time.time(), "state": {}}
+                                   "pending": None, "report": None, "opened": time.time(), "state": {},
+                                   "stage": "DETECTED"}
         alert = alert | {"since_seq": self.log_cursor.get(alert["service"], 0)}
         payload = {"incident_id": iid, "started_at": time.time(), "alert": alert}
         if background:
@@ -116,10 +121,14 @@ class Engine:
                         with self.lock:
                             rec["pending"] = update[0].value
                             rec["status"] = "awaiting_approval"
+                            rec["stage"] = "AWAITING APPROVAL"
                         continue
                     if isinstance(update, dict):
                         with self.lock:
                             rec["timeline"].extend(update.get("timeline", []))
+                            rec["stage"] = STAGE.get(node, rec["stage"])
+                            if node == "verifier" and not update.get("resolved"):
+                                rec["stage"] = "RETRYING"
                             if update.get("status"):
                                 rec["status"] = update["status"]
             snap = self.graph.get_state(cfg)
@@ -129,6 +138,7 @@ class Engine:
                     self.log_cursor[rec["service"]] = self.cloud.recent_logs(limit=1)[-1]["seq"]
                     rec["report"] = snap.values.get("report")
                     rec["status"] = (rec["report"] or {}).get("status", rec["status"])
+                    rec["stage"] = rec["status"].upper()
                     if rec["status"] in ("escalated", "blocked"):
                         self.quarantined.add(rec["service"])
         except Exception as exc:
@@ -137,14 +147,15 @@ class Engine:
                 rec["timeline"].append({"agent": "System", "ts": time.time(), "summary": f"error: {exc}",
                                         "mode": "system", "seconds": 0, "detail": {}})
 
-    def decide(self, iid: str, approve: bool, background: bool = True) -> None:
+    def decide(self, iid: str, approve: bool, background: bool = True, by: str = "") -> None:
         rec = self.incidents[iid]
         with self.lock:
             if rec["status"] != "awaiting_approval":
                 return
             rec["pending"] = None
             rec["status"] = "investigating"
-        cmd = Command(resume="approved" if approve else "rejected")
+            rec["stage"] = "EXECUTING" if approve else "ESCALATING"
+        cmd = Command(resume={"decision": "approved" if approve else "rejected", "by": by or "unnamed engineer"})
         if background:
             self.pool.submit(self._run, iid, cmd)
         else:
@@ -197,7 +208,7 @@ class Engine:
         iid = self.open_incident(alerts[0], background=False)
         while self.incidents[iid]["status"] == "awaiting_approval":
             rec = self.incidents[iid]
-            self.decide(iid, approve(rec) if callable(approve) else approve, background=False)
+            self.decide(iid, approve(rec) if callable(approve) else approve, background=False, by="test reviewer")
         if fault.service in self.cloud.faults:          # leave a clean cloud for the next run
             self.manual_fix(fault.service)
         return self.incidents[iid] | {"detected": True}
@@ -215,7 +226,7 @@ class Engine:
             for i in still_open:
                 rec = self.incidents[i]
                 if rec["status"] == "awaiting_approval" and rec["pending"]:
-                    self.decide(i, approve(rec) if callable(approve) else approve)
+                    self.decide(i, approve(rec) if callable(approve) else approve, by="test reviewer")
             if not still_open:
                 break
             time.sleep(0.5)

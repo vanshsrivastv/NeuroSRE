@@ -4,7 +4,9 @@ services:
     image: neurosre:latest
     container_name: neurosre
     ports:
-      - "8501:8501"
+      # bound to this machine only: the dashboard can approve high-risk actions,
+      # so it must not be reachable from the rest of the network
+      - "127.0.0.1:8501:8501"
     env_file:
       - path: .env
         required: false
@@ -13,6 +15,14 @@ services:
     volumes:
       # named volume: on first start Docker seeds it with the vector index built into the image
       - neurosre-data:/app/data
+    # hardening: no privilege escalation, no extra Linux capabilities, bounded resources
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 256
     restart: unless-stopped
 
 volumes:
