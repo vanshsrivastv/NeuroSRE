@@ -33,11 +33,15 @@ class LLMClient:
         try:
             if self.provider == "groq" and config.GROQ_API_KEY:
                 from langchain_groq import ChatGroq
-                for model in dict.fromkeys(m for m in (config.GROQ_MODEL, config.GROQ_BACKUP_MODEL) if m):
+                models = list(dict.fromkeys(m for m in (config.GROQ_MODEL, config.GROQ_BACKUP_MODEL) if m))
+                for i, model in enumerate(models):
                     extra = {"reasoning_effort": config.GROQ_REASONING_EFFORT} if "gpt-oss" in model else {}
+                    last = i == len(models) - 1
+                    # a slow or rate-limited model is skipped quickly; only the last one gets a retry
                     self.chats.append((model, ChatGroq(model=model, api_key=config.GROQ_API_KEY,
-                                                       temperature=config.LLM_TEMPERATURE, max_retries=2,
-                                                       timeout=45, **extra)))
+                                                       temperature=config.LLM_TEMPERATURE,
+                                                       max_retries=1 if last else 0,
+                                                       timeout=config.LLM_TIMEOUT, **extra)))
             elif self.provider == "anthropic" and config.ANTHROPIC_API_KEY:
                 from langchain_anthropic import ChatAnthropic
                 self.chats.append((config.ANTHROPIC_MODEL, ChatAnthropic(

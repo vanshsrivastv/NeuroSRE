@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "neurosre",
-      "runtimeExecutable": ".venv/Scripts/streamlit.exe",
-      "runtimeArgs": ["run", "app.py", "--server.port", "8501", "--server.headless", "true"],
-      "port": 8501
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "neurosre.api"],
+      "port": 8000
     }
   ]
 }

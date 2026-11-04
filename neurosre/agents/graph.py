@@ -56,6 +56,8 @@ class IncidentState(TypedDict, total=False):
     resolved: bool
     status: str
     escalation_reason: str
+    needs_evidence: bool
+    waited_for_evidence: bool
     report: dict
     timeline: Annotated[list[dict], operator.add]
 
@@ -91,6 +93,7 @@ class PlanOut(BaseModel):
 
 
 # ---------------------------------------------------------------- evidence gate
+WEAK_EVIDENCE = "retrieval found no strong match for the evidence"
 def evidence_query(alert: dict, logs: list[str]) -> str:
     """Retrieval query built from raw evidence only, so retrieval stays independent of the
     LLM's own classification. Repeated log lines are collapsed so one noisy line can't dominate."""
@@ -116,12 +119,15 @@ def evidence_gate(triage: dict, runbook, hits: list[dict], service: str) -> str:
     if service not in runbook.services:
         return (f"runbook {runbook.id} applies to {', '.join(runbook.services)}, not to the affected "
                 f"service {service}")
-    if not hits or hits[0]["score"] < config.MIN_RETRIEVAL_SCORE:
-        return "retrieval found no runbook that is a strong match for the evidence"
+    if not hits:
+        return "retrieval found no runbook for the evidence"
+    top = hits[0]
     chosen = next((h for h in hits if h["runbook_id"] == runbook.id), None)
-    if chosen is None or hits[0]["score"] - chosen["score"] > config.AGREEMENT_MARGIN:
-        return (f"evidence conflicts: the logs best match {hits[0]['runbook_id']} ({hits[0]['title']}), "
+    if chosen is None or top["score"] - chosen["score"] > config.AGREEMENT_MARGIN:
+        return (f"evidence conflicts: the logs best match {top['runbook_id']} ({top['title']}), "
                 f"not the chosen {runbook.id}")
+    if top["score"] < config.MIN_RETRIEVAL_SCORE:
+        return f"{WEAK_EVIDENCE} (best {top['runbook_id']} scored {top['score']:.2f})"
     return ""
 
 
@@ -135,6 +141,16 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
         msg = f"Anomaly on {svc}: " + "; ".join(alert["signals"])
         return {"logs": lines, "attempts": 0, "tried_runbooks": [], "status": "investigating",
                 "timeline": _event("Monitor", msg, signals=alert["signals"], sample_logs=lines[-4:])}
+
+    def gather_node(state: IncidentState):
+        alert = state["alert"]
+        svc = alert["service"]
+        for _ in range(config.ALERT_FOR_CHECKS):      # wait for more monitoring checks
+            cloud.tick()
+        recent = cloud.recent_logs(svc, limit=60, since_seq=alert.get("since_seq", 0))
+        lines = [f"[{l['level']}] {l['service']}: {l['message']}" for l in recent if l["level"] != "INFO"][-16:]
+        return {"logs": lines, "needs_evidence": False, "waited_for_evidence": True,
+                "timeline": _event("Monitor", f"Collected {len(lines)} recent warning/error lines from {svc} for a second look")}
 
     def triage_node(state: IncidentState):
         alert, logs = state["alert"], state["logs"]
@@ -199,10 +215,15 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
         events = _event("Diagnosis", f"Runbook {diag['runbook_id'] or 'NONE'} ({rb.title if rb else 'no match'}): "
                         f"{diag['root_cause']}", diag["mode"], secs,
                         retrieved=[(h["runbook_id"], h["title"], h["score"]) for h in hits], **diag)
+        if gate.startswith(WEAK_EVIDENCE) and not state.get("waited_for_evidence"):
+            # like an engineer would: weak evidence is a reason to look longer, not to guess or give up
+            events += _event("Evidence Gate", f"Weak evidence: {gate}. Collecting more logs before deciding")
+            return {"retrieved": hits, "diagnosis": diag, "escalation_reason": "", "needs_evidence": True,
+                    "timeline": events}
         if gate:
             events += _event("Evidence Gate", f"Not safe to act automatically: {gate}")
         return {"retrieved": hits, "diagnosis": diag, "tried_runbooks": tried + [diag["runbook_id"]],
-                "escalation_reason": gate, "timeline": events}
+                "escalation_reason": gate, "needs_evidence": False, "timeline": events}
 
     def planner_node(state: IncidentState):
         tri, diag = state["triage"], state["diagnosis"]
@@ -320,7 +341,7 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
 
     # -------------------------------------------------------------- wiring
     g = StateGraph(IncidentState)
-    for name, fn in [("monitor", monitor_node), ("triage", triage_node), ("diagnosis", diagnosis_node),
+    for name, fn in [("monitor", monitor_node), ("triage", triage_node), ("diagnosis", diagnosis_node), ("gather", gather_node),
                      ("planner", planner_node), ("safety_guard", safety_node), ("human_approval", approval_node),
                      ("executor", executor_node), ("verifier", verifier_node), ("escalate", escalate_node),
                      ("reporter", reporter_node)]:
@@ -328,8 +349,10 @@ def build_graph(cloud: CloudSimulator, kb: KnowledgeBase, llm: LLMClient, on_rep
     g.add_edge(START, "monitor")
     g.add_edge("monitor", "triage")
     g.add_edge("triage", "diagnosis")
-    g.add_conditional_edges("diagnosis", lambda s: "escalate" if s.get("escalation_reason") else "planner",
-                            ["planner", "escalate"])
+    g.add_conditional_edges("diagnosis", lambda s: "gather" if s.get("needs_evidence") else
+                            ("escalate" if s.get("escalation_reason") else "planner"),
+                            ["planner", "escalate", "gather"])
+    g.add_edge("gather", "diagnosis")
     g.add_edge("planner", "safety_guard")
     g.add_conditional_edges("safety_guard",
                             lambda s: {"blocked": "escalate", "high": "human_approval"}.get(s["risk"], "executor"),

@@ -25,6 +25,12 @@ BASELINE = {
     "redis-cache":     dict(kind="cache",    cpu=15, memory=60, disk=20, latency_ms=2,   error_rate=0.0, replicas=1),
     "worker-queue":    dict(kind="queue",    cpu=30, memory=40, disk=30, latency_ms=200, error_rate=0.2, replicas=2),
 }
+# Who calls whom (caller -> callee). Used by the dashboard's service map to show blast radius.
+DEPENDENCIES = [
+    ("api-gateway", "auth-service"), ("api-gateway", "payment-service"), ("api-gateway", "worker-queue"),
+    ("auth-service", "redis-cache"), ("payment-service", "orders-db"), ("payment-service", "redis-cache"),
+    ("worker-queue", "orders-db"),
+]
 BASE_EXTRA = {
     "orders-db": {"pool_size": 100, "connections": 42},
     "worker-queue": {"queue_depth": 120},

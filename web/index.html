@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuroSRE</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230c0c0b'/%3E%3Cpath d='M4 12h3.5l2-5 4.5 10 2-5h4' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
+<script>try { document.documentElement.dataset.theme = localStorage.getItem("nsre-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); } catch { document.documentElement.dataset.theme = "light"; }</script>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="mark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg></span>NeuroSRE</div>
+  <nav aria-label="Sections">
+    <a href="#incidents" data-view="incidents">Incidents<span class="b hidden" id="navOpen"></span></a>
+    <a href="#services" data-view="services">Services</a>
+    <a href="#policy" data-view="policy">Safety policy</a>
+    <a href="#runbooks" data-view="runbooks">Runbooks</a>
+    <a href="#metrics" data-view="metrics">Metrics</a>
+  </nav>
+  <div class="r">
+    <span class="chipline" id="live"><span class="pulse" aria-hidden="true"></span><span id="liveText">connecting</span></span>
+    <span class="chipline" id="model" title="Model answering the agents">-</span>
+    <span class="chipline num" id="clock">--:--:--</span>
+    <button class="ib" id="theme" aria-label="Switch light or dark theme" title="Switch theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
+  </div>
+</header>
+
+<section class="hero" aria-label="Key indicators">
+  <div class="hn"><div class="l">Services healthy</div><div class="v num" id="kHealthy">-</div><div class="bar" id="kBar" aria-hidden="true"></div></div>
+  <div class="hn"><div class="l">Open incidents</div><div class="v num" id="kOpen">-</div><div class="d" id="kOpenD">&nbsp;</div></div>
+  <div class="hn"><div class="l">Auto-resolved</div><div class="v num" id="kResolved">-</div><div class="d">this session · verified by metrics</div></div>
+  <div class="hn"><div class="l">Escalated to a human</div><div class="v num" id="kEsc">-</div><div class="d">no runbook, conflict, rejected or 3 tries</div></div>
+  <div class="hn"><div class="l">Median time to resolve</div><div class="v num" id="kMttr">-</div><div class="d">detection to verified recovery</div></div>
+</section>
+
+<!-- ================= incidents view ================= -->
+<div class="view" id="v-incidents">
+  <div class="panes">
+    <aside class="pane l" aria-label="Incident queue">
+      <div class="ph"><h2>Incidents</h2><span class="m" id="qCount"></span></div>
+      <div class="seg" role="group" aria-label="Filter incidents">
+        <button data-f="all" class="on">All</button><button data-f="me">Needs me</button><button data-f="resolved">Resolved</button><button data-f="esc">Escalated</button>
+      </div>
+      <div id="queue"></div>
+    </aside>
+    <main class="pane c" aria-label="Incident detail"><div class="story" id="story"></div></main>
+    <aside class="pane r" aria-label="Live system">
+      <div class="ph"><h2>Services</h2><span class="m" id="svcCount"></span></div>
+      <div class="rh"><span></span><span>service</span><span>cpu</span><span>mem</span><span>errors</span></div>
+      <div class="rows" id="rows"></div>
+      <div class="ph"><h2>Chaos</h2><span class="m">inject a fault</span></div>
+      <div class="chaos">
+        <select class="sel" id="fFault" aria-label="Fault to inject"></select>
+        <select class="sel" id="fTarget" aria-label="Target service"></select>
+        <button class="btn primary sm" id="bInject">Inject</button>
+        <button class="btn sm" id="bRandom">Random</button>
+        <button class="btn sm full" id="bAttack" title="Injects a faulty release plus a log line that tries to make the AI drop the database">Prompt-injection attack</button>
+        <div class="opts">
+          <label class="switch"><input type="checkbox" id="sAuto"> Auto chaos</label>
+          <label class="switch" title="Log wording the system was never tuned on, plus misleading lines"><input type="checkbox" id="sHard"> Hard mode</label>
+        </div>
+      </div>
+      <div id="waitingWrap" class="hidden">
+        <div class="ph"><h2>Waiting for a human</h2></div>
+        <div class="waiting" id="waiting"></div>
+      </div>
+      <div class="ph"><h2>Logs</h2><span class="m">streaming</span></div>
+      <div class="term" id="term" aria-live="off"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ================= services view ================= -->
+<div class="view hidden" id="v-services">
+  <div class="page">
+    <h2 class="title">Services</h2>
+    <section class="card"><div class="card-h"><h3>Service map</h3><span class="muted" style="font-size:12px">dependencies and live request flow</span><span class="m legend" id="legend2"></span></div>
+      <div class="topo" id="topoBig"></div><div class="blast" id="blastBig"></div></section>
+    <section class="card"><div class="card-h"><h3>All services</h3><span class="m">2 s resolution</span></div>
+      <table class="t"><thead><tr><th>Service</th><th>Status</th><th>CPU</th><th>Memory</th><th>Disk</th><th>p99 latency</th><th>Error rate</th><th>Replicas</th><th>Version</th><th>Details</th></tr></thead><tbody id="svcTable"></tbody></table></section>
+  </div>
+</div>
+
+<!-- ================= policy view ================= -->
+<div class="view hidden" id="v-policy">
+  <div class="page">
+    <h2 class="title">Safety policy</h2>
+    <p class="sub">The AI never writes shell commands. It can only choose from these actions. Low and medium risk run automatically; high risk waits for a named engineer; anything else is blocked. Allowed actions that are not in the selected runbook, or that target another service, are raised to high risk.</p>
+    <section class="card"><table class="t"><thead><tr><th>Action</th><th>Risk</th><th>What it does</th><th>Limits</th><th>Applies to</th></tr></thead><tbody id="policy"></tbody></table></section>
+    <section class="card"><div class="card-h"><h3>Red-team test</h3><span class="m"><button class="btn sm primary" id="bRed">Run attacks against the Safety Guard</button></span></div>
+      <table class="t"><thead><tr><th>Attack</th><th>Command</th><th>Verdict</th><th>Reason</th></tr></thead><tbody id="red"><tr><td colspan="4" class="muted">Run the test to see each dangerous plan checked by the real policy code.</td></tr></tbody></table></section>
+  </div>
+</div>
+
+<!-- ================= runbooks view ================= -->
+<div class="view hidden" id="v-runbooks">
+  <div class="page">
+    <h2 class="title">Runbooks</h2>
+    <p class="sub" id="kbSub">The knowledge base the Diagnosis agent searches.</p>
+    <div class="two">
+      <section class="card">
+        <form class="searchbar" id="kbForm"><input class="inp" id="kbQ" placeholder="Describe a symptom, e.g. x509 certificate has expired" aria-label="Search runbooks"><button class="btn primary">Search</button></form>
+        <div id="kbHits"></div>
+        <div class="card-h" style="border-top:1px solid var(--line)"><h3>All runbooks</h3></div>
+        <div id="kbList"></div>
+      </section>
+      <section class="card"><div class="rbtext" id="kbText"><p class="muted" style="padding-top:12px">Select a runbook.</p></div></section>
+    </div>
+  </div>
+</div>
+
+<!-- ================= metrics view ================= -->
+<div class="view hidden" id="v-metrics">
+  <div class="page" id="metricsPage"></div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

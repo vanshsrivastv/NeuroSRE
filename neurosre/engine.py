@@ -22,7 +22,7 @@ from .storage import IncidentStore
 
 OPEN = {"investigating", "awaiting_approval"}
 # lifecycle stage shown on the dashboard, keyed by the graph node that just finished
-STAGE = {"monitor": "DETECTED", "triage": "TRIAGED", "diagnosis": "DIAGNOSED", "planner": "PLANNED",
+STAGE = {"monitor": "DETECTED", "triage": "TRIAGED", "diagnosis": "DIAGNOSED", "gather": "GATHERING EVIDENCE", "planner": "PLANNED",
          "safety_guard": "CHECKED", "human_approval": "APPROVAL GIVEN", "executor": "VERIFYING",
          "verifier": "VERIFIED", "escalate": "ESCALATED"}
 
@@ -105,6 +105,7 @@ class Engine:
                                    "stage": "DETECTED"}
         alert = alert | {"since_seq": self.log_cursor.get(alert["service"], 0)}
         payload = {"incident_id": iid, "started_at": time.time(), "alert": alert}
+        self.incidents[iid]["state"]["alert"] = alert
         if background:
             self.pool.submit(self._run, iid, payload)
         else:
@@ -126,6 +127,8 @@ class Engine:
                     if isinstance(update, dict):
                         with self.lock:
                             rec["timeline"].extend(update.get("timeline", []))
+                            # share partial state as each agent finishes, so the dashboard can show it live
+                            rec["state"].update({k: v for k, v in update.items() if k != "timeline"})
                             rec["stage"] = STAGE.get(node, rec["stage"])
                             if node == "verifier" and not update.get("resolved"):
                                 rec["stage"] = "RETRYING"
