@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuroSRE (design sample E, flight deck)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sans: "Geist", "Segoe UI", system-ui, sans-serif; --mono: "Geist Mono", Consolas, monospace;
+  --bg: #f5f5f4; --pane: #ffffff; --pane-2: #fafaf9; --sunk: #f0f0ee; --line: #e5e5e3; --line-2: #d4d4d1;
+  --text: #0c0c0b; --text-2: #4a4a47; --text-3: #75756f;
+  --accent: #2563eb; --accent-weak: #e9effd; --on-accent: #ffffff;
+  --ok: #15803d; --ok-weak: #e8f5ec; --warn: #b45309; --warn-weak: #fdf3e5; --crit: #dc2626; --crit-weak: #fdecec;
+  --term: #0b0b0c; --term-2: #a1a1aa; --term-3: #63636b;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+}
+:root[data-theme="dark"] {
+  --bg: #09090a; --pane: #111112; --pane-2: #161618; --sunk: #0d0d0e; --line: #232326; --line-2: #2f2f33;
+  --text: #f4f4f5; --text-2: #b4b4bb; --text-3: #85858d;
+  --accent: #5b8cff; --accent-weak: #15203a; --on-accent: #050814;
+  --ok: #34d399; --ok-weak: #0c2219; --warn: #f5a524; --warn-weak: #2a1e0b; --crit: #f87171; --crit-weak: #2c1214;
+  --term: #050506; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased; font-feature-settings: "ss01"; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.mono { font-family: var(--mono); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- top ---------- */
+.top { height: 52px; display: flex; align-items: center; gap: 18px; padding: 0 18px; background: var(--pane); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: -.2px; }
+.mark { width: 26px; height: 26px; border-radius: 7px; background: var(--text); display: grid; place-items: center; }
+.mark svg { color: var(--pane); }
+.top nav { display: flex; gap: 2px; margin-left: 10px; }
+.top nav a { padding: 6px 11px; border-radius: 6px; color: var(--text-3); text-decoration: none; font-weight: 500; cursor: pointer; transition: color .15s, background .15s; }
+.top nav a:hover { color: var(--text); background: var(--sunk); }
+.top nav a.on { color: var(--text); background: var(--sunk); }
+.top nav a .b { margin-left: 6px; font: 600 11px var(--mono); color: #fff; background: var(--crit); padding: 0 5px; border-radius: 4px; }
+.top .r { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-3); }
+.chipline { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--pane); font-family: var(--mono); font-size: 12px; }
+.pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 var(--ok); animation: ping 2s infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.ib { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 7px; background: var(--pane); display: grid; place-items: center; cursor: pointer; color: var(--text-2); }
+.ib:hover { color: var(--text); background: var(--sunk); }
+
+/* ---------- headline numbers ---------- */
+.hero { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--pane); border-bottom: 1px solid var(--line); }
+.hn { padding: 14px 20px 14px; border-left: 1px solid var(--line); }
+.hn:first-child { border-left: 0; }
+.hn .l { font-size: 12px; color: var(--text-3); }
+.hn .v { font-size: 34px; font-weight: 600; letter-spacing: -1.4px; line-height: 1.15; }
+.hn .v small { font-size: 15px; font-weight: 500; color: var(--text-3); letter-spacing: 0; }
+.hn .v.crit { color: var(--crit); }
+.hn .d { font-size: 12px; color: var(--text-2); }
+.hn .bar { display: flex; gap: 3px; margin-top: 8px; }
+.hn .bar i { flex: 1; height: 4px; border-radius: 2px; background: var(--ok); }
+.hn .bar i.w { background: var(--warn); }
+
+/* ---------- panes ---------- */
+.panes { display: grid; grid-template-columns: 290px minmax(0, 1fr) 380px; height: calc(100vh - 52px - 99px); min-height: 640px; }
+.pane { overflow: auto; min-width: 0; background: var(--pane); }
+.pane.l { border-right: 1px solid var(--line); }
+.pane.r { border-left: 1px solid var(--line); }
+.pane.c { background: var(--bg); }
+.ph { display: flex; align-items: center; gap: 8px; padding: 12px 16px 10px; position: sticky; top: 0; background: inherit; z-index: 2; }
+.ph h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.ph .m { margin-left: auto; font-size: 12px; color: var(--text-3); }
+
+/* queue */
+.seg { display: flex; gap: 4px; padding: 0 16px 10px; border-bottom: 1px solid var(--line); }
+.seg button { border: 1px solid var(--line); background: var(--pane); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; color: var(--text-2); white-space: nowrap; }
+.seg button.on { background: var(--text); color: var(--pane); border-color: var(--text); }
+.q { display: grid; grid-template-columns: 3px 1fr; border-bottom: 1px solid var(--line); cursor: pointer; transition: background .15s; }
+.q:hover { background: var(--pane-2); }
+.q .rail { background: transparent; }
+.q.sel { background: var(--pane-2); } .q.sel .rail { background: var(--accent); }
+.q .in { padding: 11px 14px; }
+.q .l1 { display: flex; align-items: center; gap: 6px; font: 12px var(--mono); color: var(--text-3); }
+.q .l2 { font-weight: 600; margin-top: 3px; }
+.q .l3 { font-size: 12.5px; color: var(--text-2); }
+.st { margin-left: auto; font: 600 11px var(--sans); padding: 1px 7px; border-radius: 5px; }
+.st.wait { background: var(--warn-weak); color: var(--warn); }
+.st.ok { background: var(--ok-weak); color: var(--ok); }
+.st.esc { background: var(--crit-weak); color: var(--crit); }
+.st.gray { background: var(--sunk); color: var(--text-2); }
+
+/* centre */
+.story { max-width: 900px; margin: 0 auto; padding: 20px 26px 40px; display: grid; gap: 14px; }
+.crumb { font: 12px var(--mono); color: var(--text-3); display: flex; gap: 10px; align-items: center; }
+.crumb .rp { margin-left: auto; }
+.btn { height: 32px; padding: 0 13px; border-radius: 7px; border: 1px solid var(--line-2); background: var(--pane); cursor: pointer; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; transition: background .15s, transform .1s; }
+.btn:hover { background: var(--sunk); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--text); color: var(--pane); border-color: var(--text); }
+.btn.primary:hover { opacity: .9; }
+.btn.go { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn.no { color: var(--crit); }
+.btn.sm { height: 28px; font-size: 12.5px; padding: 0 10px; }
+h1 { margin: 2px 0 0; font-size: 28px; letter-spacing: -.8px; line-height: 1.2; font-weight: 600; }
+.facts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.fact { font: 12px var(--mono); padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--pane); color: var(--text-2); }
+.fact.p1 { background: var(--crit); color: #fff; border-color: var(--crit); font-weight: 600; }
+.lede { font-size: 15.5px; color: var(--text-2); margin: 10px 0 0; max-width: 70ch; }
+
+.card { background: var(--pane); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+.card-h { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.card-h h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.card-h .m { margin-left: auto; font-size: 12px; color: var(--text-3); }
+
+/* pipeline graph */
+.pipe { padding: 4px 8px 6px; }
+.pipe svg { display: block; width: 100%; height: auto; }
+.pipe .node rect { fill: var(--pane); stroke: var(--line-2); stroke-width: 1.2; stroke-dasharray: 3 3; transition: all .35s; }
+.pipe .node text { font: 500 10.5px var(--sans); fill: var(--text-3); transition: fill .35s; }
+.pipe .node.done rect { fill: var(--accent-weak); stroke: var(--accent); stroke-dasharray: none; }
+.pipe .node.done text { fill: var(--accent); }
+.pipe .node.now rect { fill: var(--warn-weak); stroke: var(--warn); stroke-dasharray: none; stroke-width: 1.6; animation: glow 1.6s ease-in-out infinite; }
+.pipe .node.now text { fill: var(--warn); font-weight: 600; }
+.pipe .node.esc rect { stroke: var(--crit); stroke-dasharray: 3 3; }
+.pipe .node.esc text { fill: var(--crit); }
+@keyframes glow { 50% { stroke-opacity: .35; } }
+.pipe .edge { fill: none; stroke: var(--line-2); stroke-width: 1.2; transition: stroke .35s; }
+.pipe .edge.done { stroke: var(--accent); stroke-width: 1.8; }
+.pipe .edge.alt { stroke-dasharray: 4 4; }
+.pipe .edge.bad { stroke: var(--crit); stroke-opacity: .45; stroke-dasharray: 4 4; }
+.pipe .lbl { font: 10px var(--mono); fill: var(--text-3); }
+.pipe .lbl.bad { fill: var(--crit); opacity: .8; }
+.pipe .runner { fill: var(--accent); }
+
+/* evidence gate */
+.gate { display: grid; grid-template-columns: repeat(3, 1fr) 150px; }
+.sig { padding: 12px 14px; border-right: 1px solid var(--line); }
+.sig .k { font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+.sig .v { font-weight: 600; margin-top: 3px; }
+.sig .v small { display: block; font: 12px var(--mono); font-weight: 400; color: var(--text-2); }
+.tick { width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center; background: var(--ok); color: #fff; opacity: 0; transform: scale(.6); transition: all .3s; }
+.gate.lit .tick { opacity: 1; transform: none; }
+.verdict { display: grid; place-content: center; text-align: center; background: var(--sunk); padding: 10px; }
+.verdict b { font-size: 22px; letter-spacing: -.5px; color: var(--ok); }
+.verdict span { font-size: 11.5px; color: var(--text-3); }
+
+/* decision */
+.decision { border: 1px solid var(--warn); border-radius: 10px; background: var(--pane); overflow: hidden; box-shadow: 0 0 0 4px var(--warn-weak); }
+.decision .h { display: flex; gap: 12px; padding: 14px 16px 4px; }
+.decision .h .ic { width: 30px; height: 30px; border-radius: 8px; background: var(--warn-weak); color: var(--warn); display: grid; place-items: center; flex: none; }
+.decision .h b { display: block; font-size: 15.5px; }
+.decision .h span { color: var(--text-2); font-size: 13.5px; }
+.cmd { margin: 10px 16px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--term); color: #e4e4e7; border-radius: 8px; padding: 11px 13px; font: 13px var(--mono); }
+.cmd .p { color: var(--term-3); margin-right: 8px; }
+.cmd .risk { font: 600 11px var(--mono); color: #111; background: var(--warn); padding: 1px 7px; border-radius: 4px; }
+.why { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); margin: 12px 16px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.why div { background: var(--pane-2); padding: 8px 10px; font-size: 12.5px; }
+.why div b { display: block; font-size: 11px; color: var(--text-3); font-weight: 500; }
+.act { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--pane-2); }
+.act label { font-size: 12.5px; color: var(--text-3); }
+.act input { height: 32px; border: 1px solid var(--line-2); border-radius: 7px; padding: 0 10px; background: var(--pane); width: 190px; }
+.grow { flex: 1; }
+kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; color: var(--text-3); }
+
+/* feed */
+.feed { list-style: none; margin: 0; padding: 6px 16px 10px; }
+.feed li { display: grid; grid-template-columns: 74px 1fr auto; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); align-items: baseline; opacity: 1; transition: opacity .3s, transform .3s; }
+.feed li:last-child { border-bottom: 0; }
+.feed li.hidden { opacity: 0; transform: translateY(4px); }
+.feed .who { font-weight: 600; font-size: 13px; }
+.feed .who em { display: block; font: normal 500 10.5px var(--mono); color: var(--accent); }
+.feed .msg { color: var(--text-2); font-size: 13.5px; }
+.feed code { font: 12.5px var(--mono); color: var(--text); background: var(--sunk); padding: 1px 5px; border-radius: 4px; }
+.feed .t { font: 11.5px var(--mono); color: var(--text-3); }
+.feed li.ok .who { color: var(--ok); } .feed li.w .who { color: var(--warn); }
+
+/* right: map + services + log */
+.map { padding: 0 10px 4px; }
+.map svg { display: block; width: 100%; height: auto; }
+.map .e { fill: none; stroke: var(--line-2); stroke-width: 1.3; }
+.map .e.bad { stroke: var(--warn); stroke-opacity: .7; }
+.map .dot { fill: var(--accent); }
+.map .dot.bad { fill: var(--crit); }
+.map .n circle.bg { fill: var(--pane); stroke: var(--ok); stroke-width: 2; }
+.map .n.warn circle.bg { stroke: var(--warn); }
+.map .n circle.halo { fill: var(--warn); opacity: .18; animation: halo 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes halo { 50% { transform: scale(1.35); opacity: .05; } }
+.map .n text { font: 500 10.5px var(--sans); fill: var(--text-2); text-anchor: middle; paint-order: stroke; stroke: var(--pane); stroke-width: 4px; stroke-linejoin: round; }
+.map .n text.v { font: 600 10px var(--mono); fill: var(--text-3); }
+.map .n.warn text.v { fill: var(--crit); }
+.map .n .ico { fill: none; stroke: var(--text-2); stroke-width: 1.5; }
+.rows { border-top: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 8px minmax(0, 1fr) 58px 58px 56px; gap: 10px; align-items: center; padding: 7px 16px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.row .d { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.row.warn { background: var(--warn-weak); } .row.warn .d { background: var(--warn); }
+.row .n { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .g { display: grid; gap: 2px; font: 11px var(--mono); color: var(--text-3); }
+.row .g span { height: 3px; border-radius: 2px; background: var(--sunk); overflow: hidden; }
+.row .g span i { display: block; height: 100%; background: var(--text-3); }
+.row .e { text-align: right; font: 500 12px var(--mono); }
+.row.warn .e { color: var(--crit); }
+.rh { display: grid; grid-template-columns: 8px minmax(0, 1fr) 58px 58px 56px; gap: 10px; padding: 0 16px 6px; font-size: 11px; color: var(--text-3); }
+.rh span:last-child { text-align: right; }
+.chaos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.chaos select { height: 30px; border: 1px solid var(--line-2); border-radius: 7px; background: var(--pane); padding: 0 6px; font-size: 12.5px; min-width: 0; }
+.chaos .opts { grid-column: 1 / -1; display: flex; gap: 14px; font-size: 12.5px; color: var(--text-2); }
+.chaos .opts input { accent-color: var(--accent); }
+.term { background: var(--term); margin: 0 12px 14px; border-radius: 8px; padding: 9px 11px; font: 11.5px/1.7 var(--mono); color: var(--term-2); height: 196px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+.term div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: in .35s ease-out; }
+@keyframes in { from { opacity: 0; transform: translateY(6px); } }
+.term .t { color: var(--term-3); } .term .s { color: #67c6e0; }
+.term .E { color: #f87171; } .term .W { color: #fbbf24; } .term .A { color: #6ee7b7; }
+
+@media (max-width: 1320px) { .panes { grid-template-columns: 250px minmax(0, 1fr) 330px; } }
+@media (max-width: 1100px) { .panes { grid-template-columns: minmax(0, 1fr); height: auto; } .pane.l, .pane.r { border: 0; } .hero { grid-template-columns: repeat(3, 1fr); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .map .dot { display: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="mark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg></span>NeuroSRE</div>
+  <nav aria-label="Sections"><a class="on" aria-current="page">Incidents<span class="b">1</span></a><a>Services</a><a>Safety policy</a><a>Runbooks</a><a>Metrics</a></nav>
+  <div class="r">
+    <span class="chipline"><span class="pulse" aria-hidden="true"></span>live · sim-cluster</span>
+    <span class="chipline">groq/gpt-oss-120b</span>
+    <span class="chipline num" id="clock">19:42:15</span>
+    <button class="ib" id="theme" aria-label="Switch light or dark theme" title="Switch theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
+  </div>
+</header>
+
+<section class="hero" aria-label="Key indicators">
+  <div class="hn"><div class="l">Services healthy</div><div class="v num">5<small> / 6</small></div><div class="bar" aria-hidden="true"><i></i><i></i><i class="w"></i><i></i><i></i><i></i></div></div>
+  <div class="hn"><div class="l">Open incidents</div><div class="v num crit">1</div><div class="d">waiting for your approval</div></div>
+  <div class="hn"><div class="l">Auto-resolved</div><div class="v num">37</div><div class="d">0 unsafe actions</div></div>
+  <div class="hn"><div class="l">Escalated to a human</div><div class="v num">4</div><div class="d">3 no runbook · 1 evidence conflict</div></div>
+  <div class="hn"><div class="l">Median time to resolve</div><div class="v num">14.2<small> s</small></div><div class="d">detection to verified recovery</div></div>
+</section>
+
+<div class="panes">
+  <!-- ======= queue ======= -->
+  <aside class="pane l" aria-label="Incident queue">
+    <div class="ph"><h2>Incidents</h2><span class="m">1 open · 41 closed</span></div>
+    <div class="seg" role="group" aria-label="Filter"><button class="on">All</button><button>Needs me</button><button>Resolved</button><button>Escalated</button></div>
+    <div class="q sel"><span class="rail"></span><div class="in"><div class="l1">INC-0042 · 19:42<span class="st wait">Needs approval</span></div><div class="l2">Faulty release</div><div class="l3">payment-service · P1</div></div></div>
+    <div class="q"><span class="rail"></span><div class="in"><div class="l1">INC-0041 · 19:41<span class="st ok">9.8 s</span></div><div class="l2">CPU saturation</div><div class="l3">api-gateway · scaled to 5 replicas</div></div></div>
+    <div class="q"><span class="rail"></span><div class="in"><div class="l1">INC-0040 · 19:38<span class="st esc">Escalated</span></div><div class="l2">Unrecognised fault</div><div class="l3">auth-service · no matching runbook</div></div></div>
+    <div class="q"><span class="rail"></span><div class="in"><div class="l1">INC-0039 · 19:35<span class="st ok">12.1 s</span></div><div class="l2">Disk full</div><div class="l3">orders-db · rotate_logs, clear_tmp</div></div></div>
+    <div class="q"><span class="rail"></span><div class="in"><div class="l1">INC-0038 · 19:31<span class="st ok">7.4 s</span></div><div class="l2">Memory leak</div><div class="l3">auth-service · restarted</div></div></div>
+    <div class="q"><span class="rail"></span><div class="in"><div class="l1">INC-0037 · 19:27<span class="st gray">Rejected</span></div><div class="l2">Database primary failure</div><div class="l3">orders-db · failover rejected</div></div></div>
+    <div class="q"><span class="rail"></span><div class="in"><div class="l1">INC-0036 · 19:22<span class="st ok">15.0 s</span></div><div class="l2">Connection pool exhausted</div><div class="l3">orders-db · 2 commands</div></div></div>
+  </aside>
+
+  <!-- ======= story ======= -->
+  <main class="pane c" aria-label="Incident detail">
+    <div class="story">
+      <div>
+        <div class="crumb">INC-0042 · opened 19:42:08 · attempt 1 of 3
+          <span class="rp"><button class="btn sm" id="replay"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Replay incident</button></span></div>
+        <h1>Faulty release on payment-service</h1>
+        <div class="facts"><span class="fact p1">P1</span><span class="fact">payment-service</span><span class="fact">runbook RB-010</span><span class="fact">error rate 38.6%</span><span class="fact">build v2.5.0</span></div>
+        <p class="lede">Server errors started right after build v2.5.0 rolled out. The agents traced them to that release and propose a rollback, which needs a named engineer's approval.</p>
+      </div>
+
+      <section class="card" aria-label="Agent pipeline">
+        <div class="card-h"><h3>Agent pipeline</h3><span class="m">LangGraph · path taken by this incident</span></div>
+        <div class="pipe">
+          <svg viewBox="0 0 860 170" role="img" aria-label="Pipeline: Monitor, Triage, Diagnosis, Evidence gate, Planner, Safety guard, Approval, Executor, Verifier, Reporter">
+            <defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 8 4 0 8z" fill="context-stroke"/></marker></defs>
+            <g id="edges"></g>
+            <g id="arcs"></g>
+            <g id="nodes"></g>
+            <circle class="runner" id="runner" r="4" cx="44" cy="80"/>
+          </svg>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Evidence gate">
+        <div class="card-h"><h3>Evidence gate</h3><span class="m">acts only when independent signals agree</span></div>
+        <div class="gate" id="gate">
+          <div class="sig"><div class="k"><span class="tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>Triage (LLM)</div><div class="v">Faulty release<small>bad_deployment · P1</small></div></div>
+          <div class="sig"><div class="k"><span class="tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>Diagnosis (LLM)</div><div class="v">RB-010<small>applies to payment-service</small></div></div>
+          <div class="sig"><div class="k"><span class="tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>Retrieval (raw logs only)</div><div class="v">RB-010 · 0.61<small>next RB-004 · 0.43</small></div></div>
+          <div class="verdict"><b>Agree</b><span>safe to plan a fix</span></div>
+        </div>
+      </section>
+
+      <section class="decision" aria-label="Approval required" id="decision">
+        <div class="h"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+          <div><b>Approve a high-risk change?</b><span>The Safety guard paused this plan. Nothing runs until a named engineer decides.</span></div></div>
+        <div class="cmd"><span><span class="p">$ neuroctl</span>rollback_deployment payment-service</span><span class="risk">HIGH</span></div>
+        <div class="why"><div><b>Effect</b>Revert to release v2.4.0</div><div><b>Source</b>Runbook RB-010, step 1</div><div><b>Scope</b>Affected service only</div></div>
+        <div class="act"><label for="who">Approving as</label><input id="who" value="V. Srivastava"><span class="grow"></span><button class="btn no">Reject and escalate</button><button class="btn go">Approve and run <kbd style="color:inherit;border-color:currentColor;opacity:.7">A</kbd></button></div>
+      </section>
+
+      <section class="card" aria-label="Agent activity">
+        <div class="card-h"><h3>Agent activity</h3><span class="m">6 events · 3 LLM calls · 3.4 s reasoning</span></div>
+        <ol class="feed" id="feed">
+          <li><span class="t">19:42:08</span><div><div class="who">Monitor</div><div class="msg">Error rate 38.6% against a 10% threshold, for 2 consecutive checks.</div></div></li>
+          <li><span class="t">19:42:09</span><div><div class="who">Triage<em>LLM · 1.4 s</em></div><div class="msg">Faulty release, severity P1.</div></div></li>
+          <li><span class="t">19:42:10</span><div><div class="who">Diagnosis<em>LLM · 1.1 s</em></div><div class="msg">A bug introduced in release v2.5.0. Selected <code>RB-010</code>.</div></div></li>
+          <li class="ok"><span class="t">19:42:10</span><div><div class="who">Evidence gate</div><div class="msg">Triage, runbook and independent retrieval agree.</div></div></li>
+          <li><span class="t">19:42:11</span><div><div class="who">Planner<em>LLM · 0.9 s</em></div><div class="msg"><code>rollback_deployment payment-service</code></div></div></li>
+          <li class="w"><span class="t">19:42:11</span><div><div class="who">Safety guard</div><div class="msg">Risk HIGH. Waiting for a named engineer.</div></div></li>
+        </ol>
+      </section>
+    </div>
+  </main>
+
+  <!-- ======= live system ======= -->
+  <aside class="pane r" aria-label="Live system">
+    <div class="ph"><h2>Service map</h2><span class="m">live traffic</span></div>
+    <div class="map">
+      <svg viewBox="0 0 360 262" role="img" aria-label="Service dependency map; payment-service is degraded">
+        <g id="mapEdges"></g><g id="mapDots"></g><g id="mapNodes"></g>
+      </svg>
+    </div>
+    <div class="rh"><span></span><span>service</span><span>cpu</span><span>mem</span><span>errors</span></div>
+    <div class="rows" id="rows"></div>
+    <div class="ph"><h2>Chaos</h2><span class="m">inject a fault</span></div>
+    <div class="chaos">
+      <select aria-label="Fault"><option>Faulty release</option><option>Memory leak</option><option>Disk full</option><option>Clock drift (no runbook)</option></select>
+      <select aria-label="Target"><option>payment-service</option></select>
+      <button class="btn primary sm">Inject</button><button class="btn sm">Random</button>
+      <div class="opts"><label><input type="checkbox"> Auto chaos</label><label><input type="checkbox" checked> Hard mode</label></div>
+    </div>
+    <div class="ph"><h2>Logs</h2><span class="m">streaming</span></div>
+    <div class="term" id="term" aria-live="off"></div>
+  </aside>
+</div>
+
+<script>
+const root = document.documentElement;
+root.dataset.theme = (() => { try { return localStorage.getItem("nsre-e") } catch { return null } })() || "light";
+document.getElementById("theme").onclick = () => { root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark"; try { localStorage.setItem("nsre-e", root.dataset.theme) } catch {} };
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+
+/* ---------- pipeline graph ---------- */
+const NODES = ["Monitor", "Triage", "Diagnosis", "Evidence gate", "Planner", "Safety guard", "Approval", "Executor", "Verifier", "Reporter"];
+const W = 76, H = 36, Y = 62, X = i => 6 + i * 86;
+const nodesG = document.getElementById("nodes"), edgesG = document.getElementById("edges");
+const nodeEls = NODES.map((name, i) => {
+  const g = el("g", {class: "node", transform: `translate(${X(i)},${Y})`}, nodesG);
+  el("rect", {width: W, height: H, rx: 8}, g);
+  const t = el("text", {x: W / 2, y: 22, "text-anchor": "middle"}, g); t.textContent = name;
+  return g;
+});
+const edgeEls = NODES.slice(1).map((_, i) => el("path", {class: "edge", d: `M ${X(i) + W} ${Y + H / 2} L ${X(i + 1) - 2} ${Y + H / 2}`, "marker-end": "url(#ah)"}, edgesG));
+const runner = document.getElementById("runner");
+/* branches: retry loop and low-risk bypass above; escalation exits below */
+const C = i => X(i) + W / 2, arcs = document.getElementById("arcs");
+const txt = (x, y, s, cls) => { const t = el("text", {class: "lbl" + (cls ? " " + cls : ""), x, y, "text-anchor": "middle"}, arcs); t.textContent = s; };
+el("path", {class: "edge alt", d: `M ${C(8)} ${Y} C ${C(8)} 4, ${C(2)} 4, ${C(2)} ${Y - 1}`, "marker-end": "url(#ah)"}, arcs);
+txt(C(5), 15, "not fixed: retry diagnosis with feedback (max 3)");
+el("path", {class: "edge alt", d: `M ${C(5)} ${Y} C ${C(5)} 30, ${C(7)} 30, ${C(7)} ${Y - 1}`, "marker-end": "url(#ah)"}, arcs);
+txt(C(6), 40, "low / medium risk");
+const EX = 410, EW = 112, EY = 134;
+const esc = el("g", {class: "node esc", transform: `translate(${EX},${EY})`}, arcs);
+el("rect", {width: EW, height: 26, rx: 7}, esc);
+const et = el("text", {x: EW / 2, y: 17, "text-anchor": "middle"}, esc); et.textContent = "Escalate to human";
+[[3, EX, "conflict"], [5, EX + 40, "blocked"], [6, EX + EW - 30, "rejected"], [8, EX + EW, "3 tries"]].forEach(([i, tx, label]) => {
+  el("path", {class: "edge bad", d: `M ${C(i)} ${Y + H} C ${C(i)} ${EY + 4}, ${tx} ${EY - 18}, ${tx} ${EY}`}, arcs);
+  txt(C(i) + (i < 5 ? -26 : 26), Y + H + 22, label, "bad");
+});
+const STOP_AT = 6; // this incident is paused at Approval
+function setStage(k) {
+  nodeEls.forEach((n, i) => n.setAttribute("class", "node" + (i < k ? " done" : i === k ? (k === STOP_AT ? " now" : " done") : "")));
+  edgeEls.forEach((e, i) => e.setAttribute("class", "edge" + (i < k ? " done" : "")));
+  runner.setAttribute("cx", X(k) + W / 2); runner.setAttribute("cy", Y + H + 9);
+}
+
+/* ---------- replay: the incident unfolds step by step ---------- */
+const feed = [...document.querySelectorAll("#feed li")];
+const gate = document.getElementById("gate"), decision = document.getElementById("decision");
+const FEED_AT = [0, 1, 2, 3, 4, 5];           // pipeline stage at which each feed item appears
+let timer = null;
+function replay() {
+  clearInterval(timer);
+  let k = 0; setStage(0);
+  feed.forEach(li => li.classList.add("hidden")); gate.classList.remove("lit"); decision.style.visibility = "hidden";
+  const step = () => {
+    setStage(k);
+    feed.forEach((li, i) => { if (FEED_AT[i] <= k) li.classList.remove("hidden"); });
+    if (k >= 3) gate.classList.add("lit");
+    if (k >= STOP_AT) { decision.style.visibility = "visible"; clearInterval(timer); }
+    k++;
+  };
+  step(); timer = setInterval(step, reduce ? 1 : 650);
+}
+document.getElementById("replay").onclick = replay;
+replay();
+
+/* ---------- service map with live traffic ---------- */
+const P = {"api-gateway": [180, 30], "auth-service": [58, 122], "payment-service": [180, 122], "worker-queue": [302, 122], "orders-db": [112, 214], "redis-cache": [248, 214]};
+const E = [["api-gateway", "auth-service"], ["api-gateway", "payment-service"], ["api-gateway", "worker-queue"], ["auth-service", "redis-cache"], ["payment-service", "orders-db"], ["payment-service", "redis-cache"], ["worker-queue", "orders-db"]];
+const BAD = new Set(["payment-service"]);
+const ERR = {"api-gateway": "0.4%", "auth-service": "0.2%", "payment-service": "38.6%", "orders-db": "0.1%", "redis-cache": "0.0%", "worker-queue": "0.3%"};
+const me = document.getElementById("mapEdges"), md = document.getElementById("mapDots"), mn = document.getElementById("mapNodes");
+E.forEach(([a, b], i) => {
+  const [x1, y1] = P[a], [x2, y2] = P[b], bad = BAD.has(a) || BAD.has(b);
+  const d = `M ${x1} ${y1} L ${x2} ${y2}`;
+  el("path", {class: "e" + (bad ? " bad" : ""), d}, me);
+  if (!reduce) for (let j = 0; j < (bad ? 3 : 2); j++) {
+    const c = el("circle", {class: "dot" + (bad && j === 0 ? " bad" : ""), r: 2.2}, md);
+    const m = el("animateMotion", {dur: `${bad ? 2.6 : 1.9 + (i % 3) * .3}s`, repeatCount: "indefinite", begin: `${j * 0.8 + i * 0.13}s`, path: d}, c);
+  }
+});
+const ICON = {gateway: "M-6 0h12M0 -6v12", db: "M-6 -4a6 2 0 0 0 12 0a6 2 0 0 0 -12 0v8a6 2 0 0 0 12 0v-8", app: "M-5 -5h10v10h-10z", cache: "M-6 -2l6 -4 6 4 -6 4z M-6 2l6 4 6 -4", queue: "M-6 -4h12M-6 0h12M-6 4h12"};
+const KIND = {"api-gateway": "gateway", "auth-service": "app", "payment-service": "app", "orders-db": "db", "redis-cache": "cache", "worker-queue": "queue"};
+Object.entries(P).forEach(([name, [x, y]]) => {
+  const g = el("g", {class: "n" + (BAD.has(name) ? " warn" : ""), transform: `translate(${x},${y})`}, mn);
+  if (BAD.has(name)) el("circle", {class: "halo", r: 24}, g);
+  el("circle", {class: "bg", r: 17}, g);
+  el("path", {class: "ico", d: ICON[KIND[name]]}, g);
+  const t = el("text", {y: 31}, g); t.textContent = name;
+  const v = el("text", {class: "v", y: 43}, g); v.textContent = ERR[name] + " err";
+});
+
+/* ---------- service rows ---------- */
+const S = [["api-gateway", 34, 46, "0.4%"], ["auth-service", 27, 52, "0.2%"], ["payment-service", 31, 55, "38.6%"], ["orders-db", 41, 64, "0.1%"], ["redis-cache", 16, 59, "0.0%"], ["worker-queue", 29, 41, "0.3%"]];
+const g = v => `<span class="g">${v}%<span><i style="width:${v}%"></i></span></span>`;
+document.getElementById("rows").innerHTML = S.map(([n, c, m, e]) => `<div class="row ${BAD.has(n) ? "warn" : ""}"><span class="d"></span><span class="n">${n}</span>${g(c)}${g(m)}<span class="e">${e}</span></div>`).join("");
+
+/* ---------- streaming log ---------- */
+const LOGS = [["E","payment-service","TypeError: cannot read property 'discount' of undefined (build v2.5.0)"],["I","orders-db","checkpoint complete: wrote 4,812 buffers"],["I","api-gateway","POST /api/v1/checkout 502 1,204 ms"],["E","payment-service","5xx responses jumped right after release v2.5.0"],["I","worker-queue","job completed: invoice-pdf #7731"],["W","payment-service","cached DNS answer for redis-cache.internal is stale"],["I","redis-cache","keyspace hits=7,115 misses=70"],["I","auth-service","token issued for user u-5091"],["A","api-gateway","neuroctl scale_service replicas=5 -> recovered"],["I","orders-db","replication lag 0.2 s"]];
+const term = document.getElementById("term"), clock = document.getElementById("clock");
+let t0 = new Date(2026, 10, 3, 19, 42, 2), li = 0;
+const tick = () => {
+  t0 = new Date(t0.getTime() + 1300);
+  const hh = t0.toTimeString().slice(0, 8), [l, s, m] = LOGS[li++ % LOGS.length];
+  const d = document.createElement("div");
+  d.innerHTML = `<span class="t">${hh}</span> <span class="${l}">${{E: "ERR", W: "WRN", I: "INF", A: "ACT"}[l]}</span> <span class="s">${s}</span> ${m}`;
+  term.appendChild(d); while (term.children.length > 11) term.firstChild.remove();
+  clock.textContent = hh;
+};
+for (let i = 0; i < 9; i++) tick();
+if (!reduce) setInterval(tick, 1300);
+</script>
+</body>
+</html>

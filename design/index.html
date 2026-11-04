@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuroSRE design samples</title>
+<style>
+:root { --bg: #f6f7f9; --card: #fff; --line: #e1e4ea; --text: #121826; --text-2: #4a5568; --accent: #1d4ed8; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0e1116; --card: #151a21; --line: #262d37; --text: #e6e9ee; --text-2: #a9b1bd; --accent: #6b9bff; } }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", system-ui, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 40px 24px; }
+h1 { margin: 0 0 4px; font-size: 24px; } p.lead { margin: 0 0 24px; color: var(--text-2); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+a.card { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px; color: inherit; text-decoration: none; }
+a.card:hover { border-color: var(--accent); }
+a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.k { font: 600 12px Consolas, monospace; color: var(--accent); letter-spacing: .5px; }
+h2 { margin: 4px 0 6px; font-size: 18px; }
+.card p { margin: 0 0 10px; color: var(--text-2); font-size: 14px; }
+.card ul { margin: 0; padding-left: 18px; color: var(--text-2); font-size: 13.5px; }
+@media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>NeuroSRE console: design samples</h1>
+  <p class="lead">Same example data, four directions. Each has a light / dark switch. Open one, then come back here.</p>
+  <h2 style="margin:0 0 10px;font-size:15px">New hybrids</h2>
+  <div class="grid" style="margin-bottom:26px">
+    <a class="card" href="console-e-flightdeck.html" style="border-color:var(--accent)"><div class="k">E · FLIGHT DECK</div><h2>Incident story + live agent pipeline</h2>
+      <p>D's three panes, C's big numbers, B's dense rows and terminal, plus a live LangGraph pipeline, an evidence-gate panel, a service map with flowing traffic and a Replay button.</p>
+      <ul><li>Shows <em>how the AI thinks</em>, which is what the project is about</li><li>Strongest for a live demo and viva questions</li></ul></a>
+    <a class="card" href="console-f-topology.html"><div class="k">F · TOPOLOGY</div><h2>Service map + blast radius</h2>
+      <p>A's calm console around a large dependency map with live request flow, the failing service, the impacted upstream and a blast-radius note.</p>
+      <ul><li>Most visually striking at a glance</li><li>Incident and approval in a side panel</li></ul></a>
+  </div>
+  <h2 style="margin:0 0 10px;font-size:15px">Original samples</h2>
+  <div class="grid">
+    <a class="card" href="console-mockup.html"><div class="k">A · CONSOLE</div><h2>Calm operations console</h2>
+      <p>Left navigation, panels, balanced density. Closest to Datadog or Grafana.</p>
+      <ul><li>Best all-rounder; easy to read on a projector</li><li>Services as a strip of cards with trend lines</li></ul></a>
+    <a class="card" href="console-b-noc.html"><div class="k">B · NOC</div><h2>Control-room view</h2>
+      <p>Top tabs, a dense service-health table with gauges, terminal-style log. Dark by default.</p>
+      <ul><li>Most "engineering" feel; shows the most data at once</li><li>Busiest of the four</li></ul></a>
+    <a class="card" href="console-c-swiss.html"><div class="k">C · SWISS</div><h2>Editorial, typographic</h2>
+      <p>Big numbers, hairline grids, black and white plus one red accent. Light by default.</p>
+      <ul><li>Most distinctive and presentation-friendly</li><li>Less dense; scrolls vertically</li></ul></a>
+    <a class="card" href="console-d-triage.html"><div class="k">D · INCIDENT-FIRST</div><h2>Three-pane triage</h2>
+      <p>Incident queue, the incident story in the centre, live system and chaos controls on the right.</p>
+      <ul><li>Best for narrating a demo: one incident, start to finish</li><li>Like PagerDuty or incident.io</li></ul></a>
+  </div>
+</main>
+</body>
+</html>

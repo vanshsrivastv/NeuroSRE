@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuroSRE (design sample C, Swiss)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sans: "Inter Tight", "Segoe UI", Arial, sans-serif; --mono: "IBM Plex Mono", Consolas, monospace;
+  --bg: #fafaf8; --ink: #111111; --ink-2: #4b4b4b; --ink-3: #7a7a78; --rule: #dcdcd8; --rule-2: #111111;
+  --paper: #ffffff; --tint: #f1f1ee;
+  --red: #d12d1f; --red-bg: #fbeae7; --amber: #a86400; --amber-bg: #fbf1e0; --green: #1e7a3c;
+}
+:root[data-theme="dark"] {
+  --bg: #111110; --ink: #f2f2ef; --ink-2: #bdbdb8; --ink-3: #8a8a86; --rule: #2d2d2a; --rule-2: #f2f2ef;
+  --paper: #171716; --tint: #1e1e1c;
+  --red: #ff5a48; --red-bg: #2c1512; --amber: #f0a73a; --amber-bg: #2a1f0e; --green: #4fd07a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 32px 40px; }
+
+header { display: flex; align-items: baseline; gap: 28px; padding: 22px 0 14px; border-bottom: 2px solid var(--rule-2); }
+.word { font-size: 26px; font-weight: 700; letter-spacing: -.6px; }
+.word span { font-weight: 400; color: var(--ink-3); font-size: 14px; letter-spacing: 0; margin-left: 10px; }
+nav { display: flex; gap: 22px; margin-left: auto; font-size: 14px; }
+nav a { color: var(--ink-3); text-decoration: none; padding-bottom: 3px; cursor: pointer; }
+nav a.on { color: var(--ink); border-bottom: 2px solid var(--red); font-weight: 500; }
+nav a:hover { color: var(--ink); }
+.toggle { border: 1px solid var(--ink); background: none; padding: 3px 10px; font-size: 12px; cursor: pointer; letter-spacing: .4px; }
+.meta { display: flex; gap: 20px; font: 12px var(--mono); color: var(--ink-3); padding: 8px 0 0; }
+.meta b { color: var(--ink); font-weight: 500; }
+.meta .live { color: var(--green); }
+
+/* big numbers */
+.numbers { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--rule); margin-top: 26px; }
+.num { padding: 0 20px 22px; border-left: 1px solid var(--rule); }
+.num:first-child { border-left: 0; padding-left: 0; }
+.num .l { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); }
+.num .v { font-size: 52px; font-weight: 600; letter-spacing: -2px; line-height: 1.05; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.num .v small { font-size: 20px; letter-spacing: 0; font-weight: 400; color: var(--ink-3); }
+.num .v.red { color: var(--red); }
+.num .d { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+
+.sec { margin-top: 34px; }
+.sec-h { display: flex; align-items: baseline; gap: 14px; border-top: 2px solid var(--rule-2); padding-top: 10px; margin-bottom: 16px; }
+.sec-h .no { font: 500 13px var(--mono); color: var(--ink-3); }
+.sec-h h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
+.sec-h .aside { margin-left: auto; font-size: 13px; color: var(--ink-3); display: flex; align-items: center; gap: 8px; }
+.sel { border: 0; border-bottom: 1px solid var(--ink); background: transparent; padding: 3px 2px; font-size: 13px; }
+.btn { border: 1px solid var(--ink); background: var(--ink); color: var(--bg); padding: 5px 14px; font-size: 13px; cursor: pointer; font-weight: 500; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn.red { background: transparent; color: var(--red); border-color: var(--red); }
+.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.chk input { accent-color: var(--ink); }
+
+/* services */
+.svcs { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.svc { padding: 14px 16px 16px; border-left: 1px solid var(--rule); }
+.svc:first-child { border-left: 0; padding-left: 0; }
+.svc .n { font-weight: 600; font-size: 15px; }
+.svc .s { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; color: var(--green); font-weight: 600; }
+.svc.warn .s { color: var(--amber); }
+.svc .big { font-size: 30px; font-weight: 600; letter-spacing: -1px; margin-top: 12px; font-variant-numeric: tabular-nums; }
+.svc.warn .big { color: var(--red); }
+.svc .bl { font-size: 11.5px; color: var(--ink-3); }
+.svc .row { font: 12px var(--mono); color: var(--ink-2); margin-top: 10px; line-height: 1.7; }
+.svc svg { display: block; width: 100%; height: 26px; margin-top: 8px; }
+
+/* incident */
+.inc { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 32px; }
+.title { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.title .p1 { font: 600 12px var(--mono); color: #fff; background: var(--red); padding: 2px 7px; }
+.title h3 { margin: 0; font-size: 28px; letter-spacing: -.8px; font-weight: 600; }
+.lede { font-size: 16px; color: var(--ink-2); margin: 8px 0 18px; max-width: 64ch; }
+.steps { display: flex; border-top: 1px solid var(--rule); }
+.steps div { flex: 1; padding: 8px 6px 0 0; font-size: 12px; color: var(--ink-3); border-top: 3px solid transparent; margin-top: -2px; }
+.steps div.d { border-top-color: var(--ink); color: var(--ink); }
+.steps div.n { border-top-color: var(--red); color: var(--red); font-weight: 600; }
+ol.story { list-style: none; padding: 0; margin: 20px 0 0; counter-reset: s; }
+ol.story li { display: grid; grid-template-columns: 40px 120px 1fr 72px; gap: 12px; padding: 12px 0; border-top: 1px solid var(--rule); counter-increment: s; align-items: baseline; }
+ol.story li::before { content: counter(s, decimal-leading-zero); font: 500 13px var(--mono); color: var(--ink-3); }
+ol.story .a { font-weight: 600; }
+ol.story .a small { display: block; font: 11px var(--mono); color: var(--ink-3); font-weight: 400; }
+ol.story .x { color: var(--ink-2); font-size: 14px; }
+ol.story .x code { font: 12.5px var(--mono); color: var(--ink); background: var(--tint); padding: 1px 5px; }
+ol.story .t { font: 12px var(--mono); color: var(--ink-3); text-align: right; }
+ol.story li.ok .a { color: var(--green); } ol.story li.wait .a { color: var(--amber); }
+
+.decision { border: 2px solid var(--ink); background: var(--paper); align-self: start; }
+.decision .h { padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+.decision .h .k { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--red); font-weight: 600; }
+.decision .h h4 { margin: 4px 0 0; font-size: 19px; letter-spacing: -.3px; }
+.decision .cmd { padding: 14px 16px; font: 14px var(--mono); border-bottom: 1px solid var(--rule); background: var(--tint); }
+.decision dl { margin: 0; padding: 12px 16px; display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: 13.5px; border-bottom: 1px solid var(--rule); }
+.decision dt { color: var(--ink-3); } .decision dd { margin: 0; }
+.decision dd.hi { color: var(--red); font-weight: 600; }
+.decision .f { padding: 14px 16px; display: grid; gap: 10px; }
+.decision label { font-size: 12px; color: var(--ink-3); }
+.decision input { border: 0; border-bottom: 1px solid var(--ink); background: transparent; padding: 4px 0; font-size: 15px; width: 100%; }
+.decision .btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* log */
+.log { font: 12.5px/1.75 var(--mono); border-top: 1px solid var(--rule); }
+.log div { display: grid; grid-template-columns: 72px 56px 140px 1fr; gap: 10px; border-bottom: 1px solid var(--rule); padding: 2px 0; white-space: nowrap; }
+.log span { overflow: hidden; text-overflow: ellipsis; }
+.log .t { color: var(--ink-3); } .log .ERROR { color: var(--red); font-weight: 500; } .log .WARN { color: var(--amber); } .log .INFO { color: var(--ink-3); }
+.log .sv { color: var(--ink); } .log .m { color: var(--ink-2); }
+.foot { margin-top: 26px; font-size: 12px; color: var(--ink-3); }
+@media (max-width: 1150px) { .inc { grid-template-columns: 1fr; } .svcs { grid-template-columns: repeat(3, 1fr); } .numbers { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="word">NeuroSRE<span>Autonomous incident response</span></div>
+    <nav aria-label="Sections"><a class="on" aria-current="page">Overview</a><a>Incidents</a><a>Safety policy</a><a>Runbooks</a><a>Metrics</a></nav>
+    <button class="toggle" id="theme" aria-label="Switch light or dark theme">Dark / Light</button>
+  </header>
+  <div class="meta"><span class="live">LIVE</span><span>env <b>sim-cluster</b></span><span>region <b>ap-south-1</b></span><span>model <b>groq/gpt-oss-120b</b></span><span>updated <b>19:42:15</b></span></div>
+
+  <section class="numbers" aria-label="Key indicators">
+    <div class="num"><div class="l">Services healthy</div><div class="v">5<small>/6</small></div><div class="d">payment-service degraded</div></div>
+    <div class="num"><div class="l">Open incidents</div><div class="v red">1</div><div class="d">waiting for your approval</div></div>
+    <div class="num"><div class="l">Auto-resolved</div><div class="v">37</div><div class="d">this session</div></div>
+    <div class="num"><div class="l">Escalated</div><div class="v">4</div><div class="d">3 no runbook, 1 conflict</div></div>
+    <div class="num"><div class="l">Median time to resolve</div><div class="v">14.2<small>s</small></div><div class="d">detection to verified recovery</div></div>
+  </section>
+
+  <section class="sec" aria-label="Active incident">
+    <div class="sec-h"><span class="no">01</span><h2>Active incident</h2><span class="aside">INC-0042 · opened 19:42:08 · attempt 1 of 3</span></div>
+    <div class="inc">
+      <div>
+        <div class="title"><span class="p1">P1</span><h3>Faulty release on payment-service</h3></div>
+        <p class="lede">Server errors began immediately after build v2.5.0 rolled out. The agents traced it to the release and propose rolling back, which needs your approval.</p>
+        <div class="steps" aria-label="Lifecycle"><div class="d">Detected</div><div class="d">Triaged</div><div class="d">Diagnosed</div><div class="d">Planned</div><div class="d">Checked</div><div class="n">Approval</div><div>Executing</div><div>Verifying</div><div>Resolved</div></div>
+        <ol class="story" aria-label="Agent timeline">
+          <li><span class="a">Monitor</span><span class="x">Error rate 38.6% against a 10% threshold, persisted for 2 checks.</span><span class="t">19:42:08</span></li>
+          <li><span class="a">Triage<small>LLM · 1.4 s</small></span><span class="x">Faulty release, severity P1.</span><span class="t">19:42:09</span></li>
+          <li><span class="a">Diagnosis<small>LLM · 1.1 s</small></span><span class="x">Bug introduced in v2.5.0. Runbook <code>RB-010</code> (0.61), next RB-004 (0.43).</span><span class="t">19:42:10</span></li>
+          <li class="ok"><span class="a">Evidence gate</span><span class="x">Triage, runbook and independent retrieval agree.</span><span class="t">19:42:10</span></li>
+          <li><span class="a">Planner<small>LLM · 0.9 s</small></span><span class="x"><code>rollback_deployment payment-service</code></span><span class="t">19:42:11</span></li>
+          <li class="wait"><span class="a">Safety guard</span><span class="x">High risk. Waiting for a named engineer.</span><span class="t">19:42:11</span></li>
+        </ol>
+      </div>
+      <aside class="decision" aria-label="Approval required">
+        <div class="h"><div class="k">Decision required</div><h4>Roll back payment-service?</h4></div>
+        <div class="cmd">rollback_deployment payment-service</div>
+        <dl><dt>Risk</dt><dd class="hi">High</dd><dt>Effect</dt><dd>Reverts to release v2.4.0</dd><dt>Runbook</dt><dd>RB-010, step 1 of 1</dd><dt>Scope</dt><dd>Affected service only</dd></dl>
+        <div class="f">
+          <div><label for="who">Approving engineer</label><input id="who" value="V. Srivastava"></div>
+          <div class="btns"><button class="btn red">Reject and escalate</button><button class="btn">Approve and run</button></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="sec" aria-label="Services">
+    <div class="sec-h"><span class="no">02</span><h2>Services</h2>
+      <span class="aside">
+        <select class="sel" aria-label="Fault"><option>Faulty release deployed</option><option>Memory leak</option><option>Clock drift (no runbook)</option></select>
+        <select class="sel" aria-label="Target"><option>payment-service</option></select>
+        <button class="btn">Inject fault</button><button class="btn ghost">Random</button>
+        <label class="chk"><input type="checkbox"> Auto chaos</label><label class="chk"><input type="checkbox" checked> Hard mode</label>
+      </span></div>
+    <div class="svcs" id="svcs"></div>
+  </section>
+
+  <section class="sec" aria-label="Log stream">
+    <div class="sec-h"><span class="no">03</span><h2>Log stream</h2><span class="aside">all services · newest first</span></div>
+    <div class="log" id="log"></div>
+  </section>
+  <p class="foot">Design sample C (Swiss / editorial). Static example data.</p>
+</div>
+<script>
+const root = document.documentElement;
+root.dataset.theme = (() => { try { return localStorage.getItem("nsre-c") } catch { return null } })() || "light";
+document.getElementById("theme").onclick = () => { root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark"; try { localStorage.setItem("nsre-c", root.dataset.theme) } catch {} };
+const S = [
+  ["api-gateway","ok",34,46,"84 ms","0.4",3,[3,4,3,5,4,3,4,4,3,5,4,4,3,4,4,3,4,3,4,4]],
+  ["auth-service","ok",27,52,"61 ms","0.2",2,[2,2,3,2,2,3,2,2,2,3,2,2,3,2,2,2,3,2,2,2]],
+  ["payment-service","warn",31,55,"540 ms","38.6",2,[2,2,3,2,2,3,2,2,2,3,2,2,30,36,41,38,39,37,40,38]],
+  ["orders-db","ok",41,64,"15 ms","0.1",2,[1,1,2,1,1,1,2,1,1,1,1,2,1,1,1,2,1,1,1,1]],
+  ["redis-cache","ok",16,59,"2 ms","0.0",1,[0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,0,0]],
+  ["worker-queue","ok",29,41,"205 ms","0.3",2,[2,3,2,2,3,2,2,3,2,2,3,2,2,3,2,2,3,2,2,3]],
+];
+const spark = (p, c) => { const m = Math.max(10, ...p); return `<svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="${c}" stroke-width="1.5" vector-effect="non-scaling-stroke" points="${p.map((v, i) => `${i * 100 / (p.length - 1)},${24 - v / m * 22}`).join(" ")}"/></svg>`; };
+document.getElementById("svcs").innerHTML = S.map(([n, st, cpu, mem, lat, err, rep, pts]) => `<div class="svc ${st}">
+  <div class="n">${n}</div><div class="s">${st === "ok" ? "Healthy" : "Degraded"}</div>
+  <div class="big">${err}%</div><div class="bl">error rate</div>
+  <div class="row">cpu ${cpu}% · mem ${mem}%<br>p99 ${lat} · ×${rep}</div>${spark(pts, st === "ok" ? "var(--ink-3)" : "var(--red)")}</div>`).join("");
+const L = [["19:42:14","ERROR","payment-service","TypeError: cannot read property 'discount' of undefined (build v2.5.0)"],["19:42:13","INFO","orders-db","checkpoint complete: wrote 4,812 buffers"],["19:42:12","ERROR","payment-service","5xx responses jumped right after release v2.5.0"],["19:42:11","WARN","payment-service","cached DNS answer for redis-cache.internal is stale"],["19:42:10","INFO","auth-service","token issued for user u-5091"],["19:42:08","ERROR","payment-service","5xx responses jumped right after release v2.5.0"],["19:42:06","INFO","payment-service","release v2.5.0 finished rolling out"],["19:41:58","INFO","api-gateway","neuroctl scale_service replicas=5: scaled to 5 replicas, recovered"],["19:41:57","WARN","api-gateway","p99 response time up to 1,412 ms, worker pool saturated"],["19:41:55","WARN","api-gateway","container throttled: cpu usage 96% of quota"]];
+document.getElementById("log").innerHTML = L.map(([t, l, s, m]) => `<div><span class="t">${t}</span><span class="${l}">${l}</span><span class="sv">${s}</span><span class="m">${m}</span></div>`).join("");
+</script>
+</body>
+</html>
