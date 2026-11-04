@@ -16,6 +16,6 @@ USER neurosre
 # Build the vector index (and download the embedding model) at image build time
 RUN python -c "from neurosre.knowledge.store import KnowledgeBase; kb = KnowledgeBase(); print(kb.backend, len(kb.chunks))"
 
-EXPOSE 8501
-HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+EXPOSE 8000
+HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/faults')"
+CMD ["uvicorn", "neurosre.api:app", "--host", "0.0.0.0", "--port", "8000"]

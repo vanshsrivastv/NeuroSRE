@@ -190,7 +190,7 @@ def benchmark_headlines() -> list[dict]:
         text = path.read_text(encoding="utf-8")
         title = (re.search(r"^# (.+)$", text, re.M) or [None, path.stem])[1]
         head = text.split("## Headline", 1)[-1].split("##", 1)[0]
-        rows = [[c.strip(" *") for c in line.strip("|").split("|")] for line in head.splitlines()
+        rows = [[c.replace("**", "").strip() for c in line.strip("|").split("|")] for line in head.splitlines()
                 if line.startswith("|") and "---" not in line and "Metric" not in line]
         out.append({"file": path.name, "title": title, "rows": rows})
     return out

@@ -6,7 +6,7 @@ services:
     ports:
       # bound to this machine only: the dashboard can approve high-risk actions,
       # so it must not be reachable from the rest of the network
-      - "127.0.0.1:8501:8501"
+      - "127.0.0.1:8000:8000"
     env_file:
       - path: .env
         required: false

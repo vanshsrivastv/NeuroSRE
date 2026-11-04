@@ -243,7 +243,10 @@ function outcomeHTML(d) {
   const rep = d.report;
   if (d.status === "resolved" && rep) {
     const acts = (rep.actions || []).map(a => `<code>${esc(a.action)}</code>`).join(" ");
-    return `<div class="outcome ok"><span class="ic">${ICON.ok}</span><div class="grow"><b>Resolved in ${rep.mttr_seconds} s</b><span>Recovery verified from live metrics, not from the executor's word. Actions: ${acts || "none"}${rep.approval ? " · " + esc(rep.approval) : ""}</span></div></div>`;
+    const asked = d.timeline.find(e => e.agent === "Safety Guard" && /HIGH/.test(e.summary)), answered = d.timeline.find(e => e.agent === "Human Approval");
+    const wait = asked && answered ? answered.ts - asked.ts : 0;
+    const split = wait > 1 ? ` <span class="muted" style="font-weight:400">(${(rep.mttr_seconds - wait).toFixed(1)} s agents + ${wait.toFixed(1)} s waiting for approval)</span>` : "";
+    return `<div class="outcome ok"><span class="ic">${ICON.ok}</span><div class="grow"><b>Resolved in ${rep.mttr_seconds} s${split}</b><span>Recovery verified from live metrics, not from the executor's word. Actions: ${acts || "none"}${rep.approval ? " · " + esc(rep.approval) : ""}</span></div></div>`;
   }
   if ((d.status === "escalated" || d.status === "blocked") && rep) {
     const waiting = App.data?.quarantined.includes(d.service);
