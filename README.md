@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/neurosre-logo-dark.svg">
+    <img alt="NeuroSRE" src="docs/brand/neurosre-logo-light.svg" width="300">
+  </picture>
+</p>
+
 # NeuroSRE: Agentic AI Swarm for Autonomous Cloud Self-Healing
 
 NeuroSRE is an autonomous **Level-1 Site Reliability Engineer** built from a team of AI agents.

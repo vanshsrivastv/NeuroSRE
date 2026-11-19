@@ -29,8 +29,8 @@ button { cursor: pointer; }
 
 /* ---------- top bar ---------- */
 .top { height: 52px; display: flex; align-items: center; gap: 18px; padding: 0 18px; background: var(--pane); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: -.2px; }
-.mark { width: 26px; height: 26px; border-radius: 7px; background: var(--text); display: grid; place-items: center; color: var(--pane); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -.2px; }
+.mark { width: 26px; height: 26px; display: grid; place-items: center; color: var(--text); }
 .top nav { display: flex; gap: 2px; margin-left: 10px; }
 .top nav a { padding: 6px 11px; border-radius: 6px; color: var(--text-3); text-decoration: none; font-weight: 500; transition: color .15s, background .15s; }
 .top nav a:hover { color: var(--text); background: var(--sunk); }

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">
+  <title>NeuroSRE</title>
+  <defs>
+    <clipPath id="a"><circle cx="32" cy="27.1" r="14"/></clipPath>
+    <clipPath id="b"><circle cx="26.37" cy="36.85" r="14"/></clipPath>
+  </defs>
+  <g clip-path="url(#a)"><g clip-path="url(#b)"><circle cx="37.63" cy="36.85" r="14" fill="#2563eb"/></g></g>
+  <g fill="none" stroke="#0b0b0c" stroke-width="3.8">
+    <circle cx="32" cy="27.1" r="14"/><circle cx="26.37" cy="36.85" r="14"/><circle cx="37.63" cy="36.85" r="14"/>
+  </g>
+</svg>
