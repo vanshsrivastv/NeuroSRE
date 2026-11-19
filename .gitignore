@@ -9,3 +9,7 @@ docs/evaluation/eval.db
 # old group-project synopsis (contains classmates' details)
 docs/NeuroSRE_Synopsis.docx
 docs/NeuroSRE_Synopsis.pdf
+
+# report and synopsis are submitted separately, not published
+docs/NeuroSRE_Mini_Project_Report.*
+docs/NeuroSRE_Synopsis_Solo.*
