@@ -368,6 +368,7 @@ function renderQueue(incs) {
 $("#queue").addEventListener("click", ev => {
   const q = ev.target.closest(".q"); if (!q) return;
   App.selected = q.dataset.id; App.pinned = true; App.storySig = ""; poll();
+  if (matchMedia("(max-width: 1100px)").matches) setTimeout(() => document.querySelector(".pane.c")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
 });
 $$(".seg button").forEach(b => b.onclick = () => {
   $$(".seg button").forEach(x => x.classList.toggle("on", x === b)); App.filter = b.dataset.f; if (App.data) renderQueue(App.data.incidents);

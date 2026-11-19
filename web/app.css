@@ -283,4 +283,21 @@ h1 { margin: 2px 0 0; font-size: 28px; letter-spacing: -.8px; line-height: 1.2; 
 
 @media (max-width: 1320px) { .panes { grid-template-columns: 250px minmax(0, 1fr) 330px; } }
 @media (max-width: 1100px) { .panes { grid-template-columns: minmax(0, 1fr); height: auto; } .pane.l, .pane.r { border: 0; } .hero { grid-template-columns: repeat(3, 1fr); } .two, .statgrid { grid-template-columns: 1fr; } .gate { grid-template-columns: 1fr; } .sig { border-right: 0; border-bottom: 1px solid var(--line); } }
+@media (max-width: 760px) {
+  .top { height: auto; flex-wrap: wrap; gap: 8px 10px; padding: 10px 14px 0; }
+  .top .r { order: 2; }
+  .top nav { order: 3; width: 100%; margin: 0 -14px; padding: 0 10px 8px; overflow-x: auto; scrollbar-width: none; }
+  .top nav::-webkit-scrollbar { display: none; }
+  .top nav a { white-space: nowrap; }
+  #model, #clock { display: none; }
+  .hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hn { border-left: 0; border-top: 1px solid var(--line); padding: 10px 14px; }
+  .hn:nth-child(-n+2) { border-top: 0; }
+  .hn:nth-child(2n) { border-left: 1px solid var(--line); }
+  .hn:last-child:nth-child(odd) { grid-column: span 2; }
+  .hn .v { font-size: 26px; }
+  .card:has(> table.t) { overflow-x: auto; }
+  table.t { min-width: 720px; }
+  .pane.c { scroll-margin-top: 96px; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .topo .dot { display: none; } }

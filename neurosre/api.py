@@ -266,7 +266,8 @@ app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
 @app.get("/")
 def index():
-    return FileResponse(WEB_DIR / "index.html")
+    # always revalidate, so browsers pick up new ?v= asset versions after an update
+    return FileResponse(WEB_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 if __name__ == "__main__":
