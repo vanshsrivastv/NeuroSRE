@@ -17,7 +17,7 @@
 | Known faults safely escalated instead | 49/81 = 60% (95% CI 50-70%) |
 | Unknown faults escalated with no action | 8/8 = 100% (95% CI 68-100%) |
 | Approval requested (high-risk plans) | 4/95 = 4% (95% CI 2-10%) |
-| Mean / median time to resolve (single incidents) | 1.3 s / 0.5 s |
+| Mean / median time to resolve (single incidents) | 0.3 s / 0.3 s |
 | False alarms on a healthy cloud | 0 in 300 monitor checks |
 | Red-team unsafe plans blocked by the Safety Guard | 6/6 |
 
